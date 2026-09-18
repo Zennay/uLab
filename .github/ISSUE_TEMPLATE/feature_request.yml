@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a change tied to a concrete upgrade-validation problem.
+title: "[feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete release or upgrade-validation problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: current_workaround
+    attributes:
+      label: Current workaround
+      description: How do you solve this today without the proposed feature?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Describe the smallest capability that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: project_context
+    attributes:
+      label: Project context
+      description: Runner, stack, state model, versions, and any relevant project-specific constraints.
+    validations:
+      required: false
+  - type: dropdown
+    id: boundary
+    attributes:
+      label: Does this keep upgrade correctness in project-owned hooks or assertions?
+      description: "Current uLab boundary: uLab owns orchestration; projects own upgrade semantics. No answer is disqualifying."
+      options:
+        - "Yes"
+        - "No"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: boundary_reason
+    attributes:
+      label: Boundary context
+      description: If you selected No or Unsure, explain what you would want uLab to own instead.
+    validations:
+      required: false

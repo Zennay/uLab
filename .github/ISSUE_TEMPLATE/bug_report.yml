@@ -1,0 +1,92 @@
+name: Bug report
+description: Report incorrect orchestration, evidence, runner, or release-gate behavior.
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please remove secrets, credentials, tokens, and sensitive application output before posting evidence publicly.
+  - type: input
+    id: ulab_version
+    attributes:
+      label: uLab version or commit
+      description: Use `ulab version` for a release build, or provide the exact Git commit.
+      placeholder: "v0.1.0 / 9a261d3..."
+    validations:
+      required: true
+  - type: dropdown
+    id: runner
+    attributes:
+      label: Runner
+      options:
+        - process
+        - docker-compose
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: matrix
+    attributes:
+      label: Upgrade matrix
+      description: List the source version or versions and the target version.
+      placeholder: |
+        from: 1.2.0, 1.3.0
+        to: 1.4.0
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command
+      description: Exact command that reproduced the problem.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What happened, including the failing phase or release-gate result.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: |
+        Attach or summarize the relevant evidence bundle. Include metadata.json and result.json details when useful. Redact secrets before posting.
+      placeholder: |
+        evidence path:
+        invocation id:
+        config sha256:
+        relevant phase/output:
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Go version, Docker/Compose versions when applicable.
+      placeholder: |
+        OS:
+        Go:
+        Docker:
+        Docker Compose:
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I removed secrets and credentials from the information above.
+          required: true
+        - label: I can reproduce this from the uLab version or commit listed above.
+          required: true
