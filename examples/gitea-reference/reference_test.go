@@ -110,7 +110,11 @@ func TestReferenceAssertsLiveSourceAndTargetVersions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(common), `grep -Fq "\"version\":\"$expected_version\""`) {
+	commonText := string(common)
+	if !strings.Contains(commonText, `grep -Fq "\"version\":\"$expected_version\""`) {
 		t.Fatal("version assertion must match the complete reported release value")
+	}
+	if !strings.Contains(commonText, "verified live Gitea version: $expected_version") {
+		t.Fatal("successful live-version assertions must be visible in run evidence")
 	}
 }
