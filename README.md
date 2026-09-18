@@ -19,6 +19,19 @@ The current prototype supports:
 - persistent evidence bundles with config hashes and reproduction metadata;
 - a stateful Docker fixture with both passing and destructive upgrade cases.
 
+## Project status
+
+uLab is an early prototype. The public configuration and evidence formats may change while external integrations are being validated.
+
+`uLab` is still a working name. A project license has also not been selected yet, so do not assume reuse rights beyond applicable law until a license file is added.
+
+Project guides:
+
+- [Installation](docs/INSTALL.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [Releasing](docs/RELEASING.md)
+
 ## Try the included fixture
 
 Docker is required for the example.
@@ -108,5 +121,3 @@ The release flow runs the Go test suite first, cross-compiles six platform binar
 ## What uLab does not decide
 
 uLab does not infer whether application data is correct after an upgrade. The project owns those assertions. uLab's job is to run them consistently across supported paths and preserve the resulting evidence.
-
-The public configuration and evidence formats are still early and may change while the first external integrations are being validated.
