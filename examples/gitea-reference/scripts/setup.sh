@@ -13,6 +13,7 @@ export GITEA_IMAGE_TAG="$ULAB_SOURCE_VERSION"
 docker compose pull server
 docker compose up -d server
 wait_for_gitea
+assert_gitea_version "$ULAB_SOURCE_VERSION"
 
 docker compose exec -T --user git server \
   gitea admin user create \
