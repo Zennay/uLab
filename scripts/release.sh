@@ -64,7 +64,7 @@ echo "$TARGETS" | while read -r GOOS_VALUE GOARCH_VALUE; do
     go build \
       -trimpath \
       -buildvcs=false \
-      -ldflags="-s -w" \
+      -ldflags="-s -w -X main.version=$VERSION -X main.commit=$COMMIT" \
       -o "$OUTPUT" \
       ./cmd/ulab
 done
@@ -75,7 +75,7 @@ commit=$COMMIT
 source_date_epoch=$SOURCE_DATE_EPOCH
 go_version=$(go version | awk '{print $3}')
 cgo_enabled=0
-build_flags=-trimpath -buildvcs=false -ldflags=-s -w
+build_flags=-trimpath -buildvcs=false -ldflags=-s -w -X main.version=<version> -X main.commit=<commit>
 targets=linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64,windows/arm64
 EOF
 
