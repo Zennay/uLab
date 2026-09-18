@@ -85,6 +85,8 @@ func TestRuntimeProofPreservesAuditMetadata(t *testing.T) {
 		"verify-gitea-proof.sh",
 		"Gitea runtime proof requires a clean working tree",
 		"Gitea runtime proof must run from canonical main",
+		"a reachable Docker daemon is required for the Gitea runtime proof",
+		"no immutable repo digest recorded for Gitea",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("runtime proof does not preserve audit contract %q", want)

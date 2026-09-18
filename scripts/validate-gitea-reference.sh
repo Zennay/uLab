@@ -12,6 +12,10 @@ for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir mk
 done
 
 docker compose version >/dev/null
+if ! docker info >/dev/null 2>&1; then
+  echo "a reachable Docker daemon is required for the Gitea runtime proof" >&2
+  exit 1
+fi
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ulab-gitea-proof.XXXXXX")
 BIN="$WORK/ulab"
@@ -179,6 +183,22 @@ preserve_work_artifacts
 GITEA_1260_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.0)
 GITEA_1264_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.4)
 GITEA_1273_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.27.3)
+
+for VERSION_AND_DIGESTS in \
+  "1.26.0|$GITEA_1260_DIGESTS" \
+  "1.26.4|$GITEA_1264_DIGESTS" \
+  "1.27.3|$GITEA_1273_DIGESTS"
+do
+  VERSION=${VERSION_AND_DIGESTS%%|*}
+  DIGESTS=${VERSION_AND_DIGESTS#*|}
+  case "$DIGESTS" in
+    ""|"[]"|"null")
+      echo "no immutable repo digest recorded for Gitea $VERSION" >&2
+      exit 1
+      ;;
+  esac
+done
+
 GO_VERSION=$(go version)
 DOCKER_CLIENT_VERSION=$(docker version --format '{{.Client.Version}}')
 DOCKER_SERVER_VERSION=$(docker version --format '{{.Server.Version}}')
