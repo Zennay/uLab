@@ -20,12 +20,12 @@ The reference currently checks two historical source releases, `1.26.0` and `1.2
 For each source path:
 
 1. start the real source Gitea container with a fresh isolated uLab Compose project;
-2. wait for `/api/healthz`;
+2. wait for `/api/healthz` and assert that the live server reports the expected source release;
 3. create a local admin user as Gitea's container `git` user;
 4. create a repository and an issue through the Gitea REST API;
 5. replace the running container with the target image while keeping the same `/data` volume;
 6. allow Gitea's real startup migration path to run;
-7. verify the target reports version `1.27.3`;
+7. assert that the live target reports exactly version `1.27.3`;
 8. verify the user, repository and issue still exist;
 9. let the uLab Docker runner remove the isolated Compose project and volume during cleanup.
 
