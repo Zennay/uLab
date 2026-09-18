@@ -16,6 +16,7 @@ The current prototype supports:
 - multiple source versions against one target;
 - bounded concurrent paths with `--jobs`;
 - JSON evidence and a non-zero compatibility gate;
+- persistent evidence bundles with config hashes and reproduction metadata;
 - a stateful Docker fixture with both passing and destructive upgrade cases.
 
 ## Try the included fixture
@@ -34,6 +35,22 @@ The fixture checks three source versions against `v2`. A second config deliberat
 go run ./cmd/ulab test \
   --jobs 2 \
   --config examples/stateful-upgrade/ulab-broken.json
+```
+
+## Evidence and reproduction
+
+Each successful invocation of `ulab test` writes a bundle under `.ulab/runs/<invocation-id>/` containing:
+
+- the exact config bytes used for the run;
+- `result.json`;
+- `metadata.json` with a SHA-256 config hash, working directory, source/target matrix, concurrency, tool build identity and a reproduction command.
+
+The normal `--json-out` file remains available for integrations that only need the machine-readable release gate. Use `--evidence-root` to place persistent bundles elsewhere.
+
+Release builds expose their embedded identity with:
+
+```sh
+ulab version
 ```
 
 ## Configuration
@@ -76,7 +93,7 @@ sh scripts/release.sh v0.1.0
 sh scripts/verify-release.sh dist/SHA256SUMS
 ```
 
-The release flow runs the Go test suite first, cross-compiles six platform binaries and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
+The release flow runs the Go test suite first, cross-compiles six platform binaries, embeds the release version and source commit, and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
 
 ## What uLab does not decide
 
