@@ -12,7 +12,7 @@ The current prototype supports:
 
 - process and Docker Compose runners;
 - `setup -> upgrade -> verify` hooks;
-- cleanup on success, hook/runner failure, and graceful SIGINT/SIGTERM cancellation;
+- cleanup on success, hook/runner failure, and graceful SIGINT/SIGTERM cancellation; after the first interrupt starts cleanup, a second interrupt uses the OS default behavior as an escape hatch;
 - multiple source versions against one target;
 - bounded concurrent paths with `--jobs`;
 - JSON evidence and a non-zero compatibility gate;
