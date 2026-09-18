@@ -31,6 +31,8 @@ For each source path:
 
 This is intentionally application-specific code. uLab only supplies orchestration, version variables, isolation, evidence and cleanup.
 
+Gitea already has its own internal migration test suite. This reference does not replace it; it exercises the black-box published-release boundary with real container images and user-visible persisted state.
+
 ## Requirements
 
 - Docker with Docker Compose v2
@@ -47,7 +49,26 @@ On a Docker-capable host, run:
 sh scripts/validate-gitea-reference.sh
 ```
 
-That command builds the exact current uLab revision, runs both real source upgrades, verifies the resulting evidence, runs the deliberate failure variant and checks that no uLab-owned Compose containers, volumes or networks remain.
+The proof:
+
+- builds the exact current uLab revision;
+- runs both real source upgrades;
+- checks the passing compatibility matrix;
+- runs and detects the deliberate failure path;
+- checks the persistent uLab evidence bundles;
+- asserts no uLab-owned Compose containers, volumes or networks remain;
+- records exact Gitea image repo digests;
+- records Go, Docker, Compose and host metadata;
+- records wall-clock durations for the passing matrix, failure path and full proof.
+
+A successful run is preserved under `.ulab/gitea-reference-runs/<session>/`. Alongside the normal uLab bundle directories, the session contains:
+
+- `proof-summary.json` — machine-readable M3 proof metadata;
+- `README.md` — human-readable proof summary;
+- `matrix-pass.json` and `matrix-pass.txt`;
+- `deliberate-failure.json`, stdout and stderr captures.
+
+These proof-level artifacts make a later audit distinguish the exact code revision, container images, environment and observed behavior rather than relying on a screenshot or an unversioned claim.
 
 For manual inspection, the passing matrix is:
 
@@ -68,6 +89,8 @@ go run ./cmd/ulab test \
 ## Evidence status
 
 The integration contract, runtime-proof harness and hook scripts are covered by local static validation. A successful run of `sh scripts/validate-gitea-reference.sh` on a real Docker host is still required before M3 can be called VERIFIED.
+
+Do not infer onboarding or toil reduction from the existence or line count of this integration. That criterion requires observed setup/runtime data and external maintainer feedback.
 
 ## Upstream references
 
