@@ -18,8 +18,7 @@ type fakeRunner struct {
 func (r *fakeRunner) Prepare(_ context.Context, env map[string]string) (executor.Result, error) {
 	r.record("prepare", env)
 	if r.failOn == "prepare" {
-		return executor.Result{Output: "prepare failed
-"}, errors.New("prepare")
+		return executor.Result{Output: "prepare failed\n"}, errors.New("prepare")
 	}
 	return executor.Result{}, nil
 }
@@ -27,18 +26,15 @@ func (r *fakeRunner) Prepare(_ context.Context, env map[string]string) (executor
 func (r *fakeRunner) Run(_ context.Context, command string, env map[string]string) (executor.Result, error) {
 	r.record(command, env)
 	if r.failOn == command {
-		return executor.Result{Output: "boom
-"}, errors.New("exit 1")
+		return executor.Result{Output: "boom\n"}, errors.New("exit 1")
 	}
-	return executor.Result{Output: command + " ok
-"}, nil
+	return executor.Result{Output: command + " ok\n"}, nil
 }
 
 func (r *fakeRunner) Cleanup(_ context.Context, env map[string]string) (executor.Result, error) {
 	r.record("cleanup", env)
 	if r.failOn == "cleanup" {
-		return executor.Result{Output: "cleanup failed
-"}, errors.New("cleanup")
+		return executor.Result{Output: "cleanup failed\n"}, errors.New("cleanup")
 	}
 	return executor.Result{}, nil
 }
