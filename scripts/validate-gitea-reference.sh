@@ -4,7 +4,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir; do
+for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir mktemp rm; do
   command -v "$COMMAND" >/dev/null 2>&1 || {
     echo "$COMMAND is required for the Gitea runtime proof" >&2
     exit 1
@@ -54,6 +54,17 @@ trap cleanup EXIT INT TERM
 json_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
+
+if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
+  echo "Gitea runtime proof requires a clean working tree" >&2
+  exit 1
+fi
+
+BRANCH=$(git branch --show-current)
+if [ "$BRANCH" != "main" ]; then
+  echo "Gitea runtime proof must run from canonical main; current branch: ${BRANCH:-detached}" >&2
+  exit 1
+fi
 
 COMMIT=$(git rev-parse --verify HEAD)
 STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
