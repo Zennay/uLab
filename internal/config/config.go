@@ -18,7 +18,13 @@ type Versions struct {
 	To   string `json:"to"`
 }
 
+type Runner struct {
+	Type        string `json:"type,omitempty"`
+	ComposeFile string `json:"compose_file,omitempty"`
+}
+
 type Config struct {
+	Runner   Runner   `json:"runner,omitempty"`
 	Versions Versions `json:"versions"`
 	Setup    Hook     `json:"setup"`
 	Upgrade  Hook     `json:"upgrade"`
@@ -53,6 +59,15 @@ func (c Config) Validate() error {
 	}
 	if c.Verify.Command == "" {
 		return errors.New("verify.command is required")
+	}
+	switch c.Runner.Type {
+	case "", "process":
+	case "docker-compose":
+		if c.Runner.ComposeFile == "" {
+			return errors.New("runner.compose_file is required for docker-compose")
+		}
+	default:
+		return fmt.Errorf("unsupported runner.type %q", c.Runner.Type)
 	}
 	return nil
 }

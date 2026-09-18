@@ -7,11 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/Zennay/ulab/internal/config"
 	"github.com/Zennay/ulab/internal/engine"
 	"github.com/Zennay/ulab/internal/evidence"
 	"github.com/Zennay/ulab/internal/executor"
+	"github.com/Zennay/ulab/internal/runner"
 )
 
 func main() {
@@ -54,6 +56,7 @@ func runInit(args []string) error {
 	}
 
 	cfg := config.Config{
+		Runner:   config.Runner{Type: "process"},
 		Versions: config.Versions{From: "v1.0.0", To: "current"},
 		Setup:    config.Hook{Command: "./ulab/setup.sh"},
 		Upgrade:  config.Hook{Command: "./ulab/upgrade.sh"},
@@ -63,8 +66,7 @@ func runInit(args []string) error {
 	if err != nil {
 		return err
 	}
-	data = append(data, '
-')
+	data = append(data, '\n')
 	if err := os.WriteFile(*path, data, 0o644); err != nil {
 		return err
 	}
@@ -85,20 +87,50 @@ func runTest(args []string) error {
 		return err
 	}
 
-	runner := engine.Engine{Executor: executor.Process{}}
-	result := runner.Run(context.Background(), cfg.Plan())
+	selectedRunner, err := buildRunner(cfg)
+	if err != nil {
+		return err
+	}
+	result := engine.Engine{Runner: selectedRunner}.Run(context.Background(), cfg.Plan())
 	if err := evidence.WriteJSON(*jsonOut, result); err != nil {
 		return err
 	}
 
-	fmt.Printf("%s -> %s: %s
-", result.SourceVersion, result.TargetVersion, result.Status)
+	fmt.Printf("%s -> %s: %s\n", result.SourceVersion, result.TargetVersion, result.Status)
 	for _, phase := range result.Phases {
-		fmt.Printf("  %-7s %s
-", phase.Phase, phase.Status)
+		fmt.Printf("  %-8s %s\n", phase.Phase, phase.Status)
 	}
 	if result.Status == engine.StatusFailed {
 		return errors.New("upgrade path failed")
 	}
 	return nil
+}
+
+func buildRunner(cfg config.Config) (runner.Runner, error) {
+	process := executor.Process{}
+	switch cfg.Runner.Type {
+	case "", "process":
+		return runner.Process{Executor: process}, nil
+	case "docker-compose":
+		return runner.DockerCompose{
+			Executor:    process,
+			ComposeFile: cfg.Runner.ComposeFile,
+			ProjectName: "ulab-" + sanitizeProjectName(cfg.Versions.From) + "-to-" + sanitizeProjectName(cfg.Versions.To),
+		}, nil
+	default:
+		return nil, fmt.Errorf("unsupported runner %q", cfg.Runner.Type)
+	}
+}
+
+func sanitizeProjectName(value string) string {
+	value = strings.ToLower(value)
+	var b strings.Builder
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-_")
 }

@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - run: go vet ./...
+      - name: Verify working upgrade path
+        run: go run ./cmd/ulab test --config examples/stateful-upgrade/ulab.json --json-out /tmp/ulab-good.json
+      - name: Verify broken upgrade is detected
+        shell: bash
+        run: |
+          if go run ./cmd/ulab test --config examples/stateful-upgrade/ulab-broken.json --json-out /tmp/ulab-broken.json; then
+            echo "broken fixture unexpectedly passed"
+            exit 1
+          fi
+          grep -q '"failure_kind": "hook_failed"' /tmp/ulab-broken.json

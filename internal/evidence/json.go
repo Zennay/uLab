@@ -12,7 +12,6 @@ func WriteJSON(path string, result engine.RunResult) error {
 	if err != nil {
 		return err
 	}
-	data = append(data, '
-')
+	data = append(data, '\n')
 	return os.WriteFile(path, data, 0o644)
 }
