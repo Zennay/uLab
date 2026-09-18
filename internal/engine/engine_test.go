@@ -114,3 +114,59 @@ func TestCleanupFailureFailsOtherwiseSuccessfulRun(t *testing.T) {
 		t.Fatalf("failure kind = %s, want runner_failed", result.FailureKind)
 	}
 }
+
+type cancelDuringUpgradeRunner struct {
+	cancel            context.CancelFunc
+	actions           []string
+	cleanupContextErr error
+}
+
+func (r *cancelDuringUpgradeRunner) Prepare(_ context.Context, _ map[string]string) (executor.Result, error) {
+	r.actions = append(r.actions, "prepare")
+	return executor.Result{}, nil
+}
+
+func (r *cancelDuringUpgradeRunner) Run(ctx context.Context, command string, _ map[string]string) (executor.Result, error) {
+	r.actions = append(r.actions, command)
+	if command == "upgrade" {
+		r.cancel()
+		<-ctx.Done()
+		return executor.Result{Output: "interrupted\n"}, ctx.Err()
+	}
+	return executor.Result{}, nil
+}
+
+func (r *cancelDuringUpgradeRunner) Cleanup(ctx context.Context, _ map[string]string) (executor.Result, error) {
+	r.actions = append(r.actions, "cleanup")
+	r.cleanupContextErr = ctx.Err()
+	return executor.Result{Output: "cleanup ok\n"}, nil
+}
+
+func TestCanceledRunStillCleansUpWithLiveContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := &cancelDuringUpgradeRunner{cancel: cancel}
+
+	result := Engine{Runner: r, NewID: func() string { return "run-interrupt" }}.Run(ctx, Plan{
+		SourceVersion:  "v1",
+		TargetVersion:  "v2",
+		UpgradeCommand: "upgrade",
+		VerifyCommand:  "verify",
+	})
+
+	if result.Status != StatusFailed {
+		t.Fatalf("status = %s, want failed", result.Status)
+	}
+	if result.FailureKind != FailureHook {
+		t.Fatalf("failure kind = %s, want hook_failed", result.FailureKind)
+	}
+	if r.cleanupContextErr != nil {
+		t.Fatalf("cleanup inherited canceled context: %v", r.cleanupContextErr)
+	}
+	want := []string{"prepare", "upgrade", "cleanup"}
+	if !reflect.DeepEqual(r.actions, want) {
+		t.Fatalf("actions = %#v, want %#v", r.actions, want)
+	}
+	if got := result.Phases[len(result.Phases)-1]; got.Phase != PhaseCleanup || got.Status != StatusPassed {
+		t.Fatalf("cleanup phase = %#v", got)
+	}
+}
