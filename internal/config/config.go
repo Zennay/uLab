@@ -73,10 +73,15 @@ func (c Config) Validate() error {
 	if len(c.Versions.From) == 0 {
 		return errors.New("versions.from requires at least one source version")
 	}
+	seenSources := make(map[string]struct{}, len(c.Versions.From))
 	for i, version := range c.Versions.From {
 		if version == "" {
 			return fmt.Errorf("versions.from[%d] cannot be empty", i)
 		}
+		if _, exists := seenSources[version]; exists {
+			return fmt.Errorf("versions.from[%d] duplicates source version %q", i, version)
+		}
+		seenSources[version] = struct{}{}
 	}
 	if c.Versions.To == "" {
 		return errors.New("versions.to is required")
