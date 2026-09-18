@@ -61,7 +61,7 @@ Each invocation of `ulab test` publishes a bundle under `.ulab/runs/<invocation-
 - `result.json`;
 - `metadata.json` with a SHA-256 config hash, working directory, source/target matrix, concurrency, tool build identity and a reproduction command.
 
-The normal `--json-out` file remains available for integrations that only need the machine-readable release gate. Use `--evidence-root` to place persistent bundles elsewhere. Interrupted paths are recorded as `canceled` rather than `failed`, so operator cancellation is not presented as an upgrade incompatibility; the overall release gate still remains non-passing.
+The normal `--json-out` file remains available for integrations that only need the machine-readable release gate. The persistent bundle is published first, so a failure writing the separate `--json-out` path does not discard the run evidence. Use `--evidence-root` to place persistent bundles elsewhere. Interrupted paths are recorded as `canceled` rather than `failed`, so operator cancellation is not presented as an upgrade incompatibility; the overall release gate still remains non-passing.
 
 Release builds expose their embedded identity with:
 

@@ -137,9 +137,6 @@ func runTestContext(ctx context.Context, args []string) error {
 		},
 	}
 	result := m.Run(ctx, cfg.Plans())
-	if err := evidence.WriteJSON(*jsonOut, result); err != nil {
-		return err
-	}
 
 	invocationID := evidence.NewInvocationID(startedAt)
 	workingDirectory, err := os.Getwd()
@@ -177,6 +174,9 @@ func runTestContext(ctx context.Context, args []string) error {
 
 	printMatrix(os.Stdout, result)
 	fmt.Println("evidence:", paths.Dir)
+	if err := evidence.WriteJSON(*jsonOut, result); err != nil {
+		return fmt.Errorf("write json output: %w", err)
+	}
 	if ctx.Err() != nil {
 		return fmt.Errorf("test run canceled: %w", ctx.Err())
 	}
