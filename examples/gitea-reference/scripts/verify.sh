@@ -4,9 +4,7 @@ set -eu
 . examples/gitea-reference/scripts/common.sh
 
 wait_for_gitea
-
-version_json=$(curl -fsS "$GITEA_BASE_URL/api/v1/version")
-printf '%s' "$version_json" | grep -Fq "\"version\":\"$ULAB_TARGET_VERSION"
+assert_gitea_version "$ULAB_TARGET_VERSION"
 
 api_get "/api/v1/user" |
   grep -Fq "\"login\":\"$GITEA_TEST_USER\""
