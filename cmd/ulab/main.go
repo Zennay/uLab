@@ -6,11 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/Zennay/ulab/internal/config"
@@ -156,15 +158,22 @@ func runTest(args []string) error {
 		return err
 	}
 
-	fmt.Printf("target %s: %s\n", result.TargetVersion, result.Status)
-	for _, run := range result.Runs {
-		fmt.Printf("  %-12s -> %-12s %s\n", run.SourceVersion, run.TargetVersion, run.Status)
-	}
+	printMatrix(os.Stdout, result)
 	fmt.Println("evidence:", paths.Dir)
 	if cfg.Policy.RequireAllPaths && result.Status == engine.StatusFailed {
 		return errors.New("compatibility policy failed")
 	}
 	return nil
+}
+
+func printMatrix(w io.Writer, result matrix.Result) {
+	fmt.Fprintf(w, "target %s: %s\n\n", result.TargetVersion, result.Status)
+	tw := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	fmt.Fprintln(tw, "FROM\tTARGET\tRESULT")
+	for _, run := range result.Runs {
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", run.SourceVersion, run.TargetVersion, run.Status)
+	}
+	_ = tw.Flush()
 }
 
 func buildRunner(cfg config.Config, plan engine.Plan) (runner.Runner, error) {
