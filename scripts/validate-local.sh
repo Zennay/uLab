@@ -15,6 +15,11 @@ BIN="$WORK/ulab"
 EVIDENCE="$WORK/evidence"
 export ULAB_VALIDATION_STATE_DIR="$WORK/state"
 
+echo "==> reference integration shell syntax"
+for script in examples/gitea-reference/scripts/*.sh; do
+  sh -n "$script"
+done
+
 echo "==> unit tests"
 go test ./...
 
