@@ -29,6 +29,7 @@ assert_gitea_version() {
     echo "version endpoint returned: $version_json" >&2
     return 1
   fi
+  echo "verified live Gitea version: $expected_version"
 }
 
 api_get() {
