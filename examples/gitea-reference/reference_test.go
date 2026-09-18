@@ -55,3 +55,13 @@ func TestReferenceHooksUseOnlyPublicULabContract(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupRunsGiteaAdminCLIAsContainerGitUser(t *testing.T) {
+	data, err := os.ReadFile("scripts/setup.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "docker compose exec -T --user git server") {
+		t.Fatal("setup must run the Gitea admin CLI as the container git user")
+	}
+}
