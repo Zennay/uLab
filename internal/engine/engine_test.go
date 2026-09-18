@@ -9,20 +9,24 @@ import (
 	"github.com/Zennay/ulab/internal/executor"
 )
 
-type fakeExecutor struct {
-	commands []string
-	failOn   string
-	env      []map[string]string
+type fakeRunner struct {
+	actions []string
+	failOn  string
+	env     []map[string]string
 }
 
-func (f *fakeExecutor) Run(_ context.Context, command string, env map[string]string) (executor.Result, error) {
-	f.commands = append(f.commands, command)
-	copied := map[string]string{}
-	for key, value := range env {
-		copied[key] = value
+func (r *fakeRunner) Prepare(_ context.Context, env map[string]string) (executor.Result, error) {
+	r.record("prepare", env)
+	if r.failOn == "prepare" {
+		return executor.Result{Output: "prepare failed
+"}, errors.New("prepare")
 	}
-	f.env = append(f.env, copied)
-	if command == f.failOn {
+	return executor.Result{}, nil
+}
+
+func (r *fakeRunner) Run(_ context.Context, command string, env map[string]string) (executor.Result, error) {
+	r.record(command, env)
+	if r.failOn == command {
 		return executor.Result{Output: "boom
 "}, errors.New("exit 1")
 	}
@@ -30,9 +34,27 @@ func (f *fakeExecutor) Run(_ context.Context, command string, env map[string]str
 "}, nil
 }
 
+func (r *fakeRunner) Cleanup(_ context.Context, env map[string]string) (executor.Result, error) {
+	r.record("cleanup", env)
+	if r.failOn == "cleanup" {
+		return executor.Result{Output: "cleanup failed
+"}, errors.New("cleanup")
+	}
+	return executor.Result{}, nil
+}
+
+func (r *fakeRunner) record(action string, env map[string]string) {
+	r.actions = append(r.actions, action)
+	copied := map[string]string{}
+	for key, value := range env {
+		copied[key] = value
+	}
+	r.env = append(r.env, copied)
+}
+
 func TestRunSuccess(t *testing.T) {
-	exec := &fakeExecutor{}
-	result := Engine{Executor: exec}.Run(context.Background(), Plan{
+	r := &fakeRunner{}
+	result := Engine{Runner: r, NewID: func() string { return "run-123" }}.Run(context.Background(), Plan{
 		SourceVersion:  "v1",
 		TargetVersion:  "v2",
 		SetupCommand:   "setup",
@@ -43,21 +65,24 @@ func TestRunSuccess(t *testing.T) {
 	if result.Status != StatusPassed {
 		t.Fatalf("status = %s, want %s", result.Status, StatusPassed)
 	}
-	want := []string{"setup", "upgrade", "verify"}
-	if !reflect.DeepEqual(exec.commands, want) {
-		t.Fatalf("commands = %#v, want %#v", exec.commands, want)
+	want := []string{"prepare", "setup", "upgrade", "verify", "cleanup"}
+	if !reflect.DeepEqual(r.actions, want) {
+		t.Fatalf("actions = %#v, want %#v", r.actions, want)
 	}
-	if got := exec.env[0]["ULAB_SOURCE_VERSION"]; got != "v1" {
-		t.Fatalf("source env = %q, want v1", got)
+	if got := r.env[0]["ULAB_RUN_ID"]; got != "run-123" {
+		t.Fatalf("run id env = %q", got)
 	}
-	if got := exec.env[0]["ULAB_TARGET_VERSION"]; got != "v2" {
-		t.Fatalf("target env = %q, want v2", got)
+	if got := r.env[0]["ULAB_SOURCE_VERSION"]; got != "v1" {
+		t.Fatalf("source env = %q", got)
+	}
+	if got := r.env[0]["ULAB_TARGET_VERSION"]; got != "v2" {
+		t.Fatalf("target env = %q", got)
 	}
 }
 
-func TestRunStopsAfterFailure(t *testing.T) {
-	exec := &fakeExecutor{failOn: "upgrade"}
-	result := Engine{Executor: exec}.Run(context.Background(), Plan{
+func TestRunStopsHooksAfterFailureButCleansUp(t *testing.T) {
+	r := &fakeRunner{failOn: "upgrade"}
+	result := Engine{Runner: r, NewID: func() string { return "run-123" }}.Run(context.Background(), Plan{
 		SourceVersion:  "v1",
 		TargetVersion:  "v2",
 		SetupCommand:   "setup",
@@ -68,18 +93,28 @@ func TestRunStopsAfterFailure(t *testing.T) {
 	if result.Status != StatusFailed {
 		t.Fatalf("status = %s, want %s", result.Status, StatusFailed)
 	}
-	want := []string{"setup", "upgrade"}
-	if !reflect.DeepEqual(exec.commands, want) {
-		t.Fatalf("commands = %#v, want %#v", exec.commands, want)
+	if result.FailureKind != FailureHook {
+		t.Fatalf("failure kind = %s", result.FailureKind)
 	}
-	if len(result.Phases) != 2 {
-		t.Fatalf("phases = %d, want 2", len(result.Phases))
+	want := []string{"prepare", "setup", "upgrade", "cleanup"}
+	if !reflect.DeepEqual(r.actions, want) {
+		t.Fatalf("actions = %#v, want %#v", r.actions, want)
 	}
-	if result.Phases[1].Status != StatusFailed {
-		t.Fatalf("upgrade status = %s, want %s", result.Phases[1].Status, StatusFailed)
+}
+
+func TestCleanupFailureFailsOtherwiseSuccessfulRun(t *testing.T) {
+	r := &fakeRunner{failOn: "cleanup"}
+	result := Engine{Runner: r, NewID: func() string { return "run-123" }}.Run(context.Background(), Plan{
+		SourceVersion:  "v1",
+		TargetVersion:  "v2",
+		UpgradeCommand: "upgrade",
+		VerifyCommand:  "verify",
+	})
+
+	if result.Status != StatusFailed {
+		t.Fatalf("status = %s, want failed", result.Status)
 	}
-	if result.Phases[1].Output != "boom
-" {
-		t.Fatalf("output = %q, want boom", result.Phases[1].Output)
+	if result.FailureKind != FailureRunner {
+		t.Fatalf("failure kind = %s, want runner_failed", result.FailureKind)
 	}
 }

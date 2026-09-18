@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_VERSION: ${APP_VERSION:-v1}
+    image: ulab-stateful-fixture:${APP_VERSION:-v1}
+    volumes:
+      - fixture-state:/data
+
+volumes:
+  fixture-state:

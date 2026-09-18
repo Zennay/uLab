@@ -1,0 +1,19 @@
+{
+  "runner": {
+    "type": "docker-compose",
+    "compose_file": "examples/stateful-upgrade/compose.yaml"
+  },
+  "versions": {
+    "from": "v1",
+    "to": "broken"
+  },
+  "setup": {
+    "command": "./examples/stateful-upgrade/scripts/setup.sh"
+  },
+  "upgrade": {
+    "command": "./examples/stateful-upgrade/scripts/upgrade.sh"
+  },
+  "verify": {
+    "command": "./examples/stateful-upgrade/scripts/verify.sh"
+  }
+}
