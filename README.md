@@ -67,6 +67,17 @@ ULAB_TARGET_VERSION
 
 For Docker Compose runs, uLab also isolates Compose project names and performs cleanup after each path.
 
+## Local release artifacts
+
+uLab can be packaged without GitHub-hosted CI or paid runners:
+
+```sh
+sh scripts/release.sh v0.1.0
+sh scripts/verify-release.sh dist/SHA256SUMS
+```
+
+The release flow runs the Go test suite first, cross-compiles six platform binaries and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
+
 ## What uLab does not decide
 
 uLab does not infer whether application data is correct after an upgrade. The project owns those assertions. uLab's job is to run them consistently across supported paths and preserve the resulting evidence.
