@@ -50,6 +50,18 @@ Update documentation when behavior changes. Do not add GitHub-hosted runner work
 
 For larger architecture changes, open an issue first so the contract can be discussed before implementation.
 
+## Issues and external integration feedback
+
+Use the repository issue forms rather than a free-form report when one fits:
+
+- **Bug report** — includes the exact uLab revision, upgrade matrix, reproduction command and evidence context.
+- **External integration feedback** — for real project trials. Include onboarding time, what orchestration uLab replaced or simplified, what remained project-specific, and the largest friction encountered. Failed or negative trials are useful evidence.
+- **Feature request** — start from a concrete upgrade-validation problem and current workaround rather than a broad platform idea.
+
+Do not post credentials, tokens, private application output or unredacted secrets in public evidence.
+
+External feedback only counts as product-validation evidence when it comes from an actual integration attempt. Hypothetical or AI-generated evaluations can guide exploration, but they are not adoption or maintainer evidence.
+
 ## Security reports
 
 Do not use a normal pull request or public issue to disclose an exploitable vulnerability. Follow [SECURITY.md](SECURITY.md).
