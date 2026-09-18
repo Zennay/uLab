@@ -15,10 +15,11 @@ type Process struct {
 func (p Process) Run(ctx context.Context, command string, env map[string]string) (Result, error) {
 	shell := p.Shell
 	if shell == "" {
-		shell = "/bin/sh"
+		shell = defaultShell()
 	}
 
-	cmd := exec.CommandContext(ctx, shell, "-c", command)
+	cmd := exec.CommandContext(ctx, shell, shellCommandArg(), command)
+	configureCommandCancellation(cmd)
 	cmd.Env = append([]string{}, os.Environ()...)
 	for key, value := range env {
 		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
