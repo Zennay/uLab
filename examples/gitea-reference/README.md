@@ -35,7 +35,7 @@ Gitea already has its own internal migration test suite. This reference does not
 
 ## Requirements
 
-- Docker with Docker Compose v2
+- Docker with Docker Compose v2 and a reachable Docker daemon
 - `curl`
 - access to `docker.gitea.com`
 
@@ -57,7 +57,7 @@ The proof:
 - runs and detects the deliberate failure path;
 - checks the persistent uLab evidence bundles;
 - asserts no uLab-owned Compose containers, volumes or networks remain;
-- records exact Gitea image repo digests;
+- records exact Gitea image repo digests and refuses to seal a proof if a pulled release has no immutable repo digest;
 - records Go, Docker, Compose and host metadata;
 - records wall-clock durations for the passing matrix, failure path and full proof.
 
