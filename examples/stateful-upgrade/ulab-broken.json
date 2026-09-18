@@ -1,0 +1,22 @@
+{
+  "runner": {
+    "type": "docker-compose",
+    "compose_file": "examples/stateful-upgrade/compose.yaml"
+  },
+  "versions": {
+    "from": ["v1", "v1.1", "v1.2"],
+    "to": "broken"
+  },
+  "setup": {
+    "command": "./examples/stateful-upgrade/scripts/setup.sh"
+  },
+  "upgrade": {
+    "command": "./examples/stateful-upgrade/scripts/upgrade.sh"
+  },
+  "verify": {
+    "command": "./examples/stateful-upgrade/scripts/verify.sh"
+  },
+  "policy": {
+    "require_all_paths": true
+  }
+}

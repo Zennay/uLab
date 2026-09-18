@@ -3,16 +3,13 @@ package evidence
 import (
 	"encoding/json"
 	"os"
-
-	"github.com/Zennay/ulab/internal/engine"
 )
 
-func WriteJSON(path string, result engine.RunResult) error {
-	data, err := json.MarshalIndent(result, "", "  ")
+func WriteJSON(path string, value any) error {
+	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
 		return err
 	}
-	data = append(data, '
-')
+	data = append(data, '\n')
 	return os.WriteFile(path, data, 0o644)
 }

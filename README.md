@@ -1,37 +1,74 @@
 # uLab
 
-uLab is an experiment in reusable upgrade-path verification for stateful software.
+uLab tests software upgrade paths without taking ownership of an application's upgrade logic.
 
-The project keeps application-specific upgrade logic in the application. uLab is responsible for the surrounding execution: planning a run, invoking setup/upgrade/verify hooks, stopping on failure, and recording evidence.
+A project defines how to set up old state, perform its upgrade and verify correctness. uLab handles the surrounding execution: isolated runner lifecycle, multiple source versions, failure handling and machine-readable evidence.
 
-The current milestone is intentionally small. It proves the execution contract before Docker orchestration, version matrices, or a web UI are added.
+> uLab owns orchestration. Projects own their upgrade logic.
 
-## Current commands
+## Current state
+
+The current prototype supports:
+
+- process and Docker Compose runners;
+- `setup -> upgrade -> verify` hooks;
+- cleanup on success and failure;
+- multiple source versions against one target;
+- bounded concurrent paths with `--jobs`;
+- JSON evidence and a non-zero compatibility gate;
+- a stateful Docker fixture with both passing and destructive upgrade cases.
+
+## Try the included fixture
+
+Docker is required for the example.
 
 ```sh
-go run ./cmd/ulab init
-go run ./cmd/ulab test
+go run ./cmd/ulab test \
+  --jobs 2 \
+  --config examples/stateful-upgrade/ulab.json
 ```
 
-`ulab init` creates a starter `ulab.json`. The config format is temporary while the core execution contract is being validated; the intended public config format is YAML once the repository is wired to its normal dependency toolchain.
+The fixture checks three source versions against `v2`. A second config deliberately removes required state and should fail:
 
-A run exposes the versions to project hooks as:
+```sh
+go run ./cmd/ulab test \
+  --jobs 2 \
+  --config examples/stateful-upgrade/ulab-broken.json
+```
+
+## Configuration
+
+`versions.from` accepts a single version or a list:
+
+```json
+{
+  "runner": {
+    "type": "docker-compose",
+    "compose_file": "compose.yaml"
+  },
+  "versions": {
+    "from": ["v1.8.0", "v1.9.0", "v2.0.0"],
+    "to": "v3.0.0"
+  },
+  "setup": { "command": "./ulab/setup.sh" },
+  "upgrade": { "command": "./ulab/upgrade.sh" },
+  "verify": { "command": "./ulab/verify.sh" },
+  "policy": { "require_all_paths": true }
+}
+```
+
+Each hook receives:
 
 ```text
+ULAB_RUN_ID
 ULAB_SOURCE_VERSION
 ULAB_TARGET_VERSION
 ```
 
-The runner executes phases in this order:
+For Docker Compose runs, uLab also isolates Compose project names and performs cleanup after each path.
 
-```text
-setup -> upgrade -> verify
-```
+## What uLab does not decide
 
-It stops at the first failed phase and writes a structured result to `ulab-result.json`.
+uLab does not infer whether application data is correct after an upgrade. The project owns those assertions. uLab's job is to run them consistently across supported paths and preserve the resulting evidence.
 
-## Project boundary
-
-uLab owns orchestration. Projects own their upgrade logic.
-
-That means uLab should eventually handle version matrices, isolated environments, evidence, retries, cleanup, CI integration and reporting. A project remains responsible for what valid setup, upgrade and verification mean for that application.
+The public configuration and evidence formats are still early and may change while the first external integrations are being validated.
