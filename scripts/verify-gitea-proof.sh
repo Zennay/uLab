@@ -76,7 +76,9 @@ grep -Fq '"volumes": "clean"' "$EVIDENCE/proof-summary.json"
 grep -Fq '"networks": "clean"' "$EVIDENCE/proof-summary.json"
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ulab-verify-gitea-proof.XXXXXX")
-trap 'rm -rf "$WORK"' EXIT INT TERM
+trap 'rm -rf "$WORK"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 cat > "$WORK/check-json.go" <<'EOF'
 package main
 
