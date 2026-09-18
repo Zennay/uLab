@@ -80,6 +80,9 @@ func TestRuntimeProofPreservesAuditMetadata(t *testing.T) {
 		"durations_seconds",
 		"PROOF.txt",
 		"json.Unmarshal",
+		"SHA256SUMS",
+		"PROOF_COMPLETE",
+		"verify-gitea-proof.sh",
 		"Gitea runtime proof requires a clean working tree",
 		"Gitea runtime proof must run from canonical main",
 	} {
@@ -116,5 +119,24 @@ func TestReferenceAssertsLiveSourceAndTargetVersions(t *testing.T) {
 	}
 	if !strings.Contains(commonText, "verified live Gitea version: $expected_version") {
 		t.Fatal("successful live-version assertions must be visible in run evidence")
+	}
+}
+
+func TestArchivedProofVerifierChecksIntegrityAndBundleLinkage(t *testing.T) {
+	data, err := os.ReadFile("../../scripts/verify-gitea-proof.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"sha256sum -c SHA256SUMS",
+		"manifest_sha256",
+		"config hash mismatch",
+		`"tool_commit\\\": \\\"$COMMIT\\\""`,
+		"expected one passed and one failed invocation bundle",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("archived proof verifier does not enforce %q", want)
+		}
 	}
 }
