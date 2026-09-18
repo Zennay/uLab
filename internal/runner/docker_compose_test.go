@@ -23,15 +23,15 @@ func (e *recordingExecutor) Run(_ context.Context, command string, env map[strin
 	return executor.Result{}, nil
 }
 
-func TestDockerComposeLifecycle(t *testing.T) {
+func TestDockerComposeLifecycleUsesRunScopedProjectName(t *testing.T) {
 	exec := &recordingExecutor{}
 	r := DockerCompose{
 		Executor:    exec,
 		ComposeFile: "examples/app/compose.yaml",
-		ProjectName: "ulab-run-123",
+		ProjectName: "ulab-v1-to-v2",
 	}
 
-	baseEnv := map[string]string{"ULAB_RUN_ID": "123"}
+	baseEnv := map[string]string{"ULAB_RUN_ID": "abc123"}
 	if _, err := r.Prepare(context.Background(), baseEnv); err != nil {
 		t.Fatalf("prepare: %v", err)
 	}
@@ -54,8 +54,40 @@ func TestDockerComposeLifecycle(t *testing.T) {
 		if got["COMPOSE_FILE"] != "examples/app/compose.yaml" {
 			t.Fatalf("COMPOSE_FILE = %q", got["COMPOSE_FILE"])
 		}
-		if got["COMPOSE_PROJECT_NAME"] != "ulab-run-123" {
+		if got["COMPOSE_PROJECT_NAME"] != "ulab-v1-to-v2-abc123" {
 			t.Fatalf("COMPOSE_PROJECT_NAME = %q", got["COMPOSE_PROJECT_NAME"])
 		}
+	}
+}
+
+func TestDockerComposeRunIDsProduceDistinctProjects(t *testing.T) {
+	r := DockerCompose{
+		ComposeFile: "compose.yaml",
+		ProjectName: "ulab-v1-to-v2",
+	}
+
+	first := r.environment(map[string]string{"ULAB_RUN_ID": "run-a"})
+	second := r.environment(map[string]string{"ULAB_RUN_ID": "run-b"})
+
+	if first["COMPOSE_PROJECT_NAME"] == second["COMPOSE_PROJECT_NAME"] {
+		t.Fatalf("project names collide: %q", first["COMPOSE_PROJECT_NAME"])
+	}
+	if first["COMPOSE_PROJECT_NAME"] != "ulab-v1-to-v2-run-a" {
+		t.Fatalf("first project = %q", first["COMPOSE_PROJECT_NAME"])
+	}
+	if second["COMPOSE_PROJECT_NAME"] != "ulab-v1-to-v2-run-b" {
+		t.Fatalf("second project = %q", second["COMPOSE_PROJECT_NAME"])
+	}
+}
+
+func TestDockerComposeProjectNameFallsBackWithoutRunID(t *testing.T) {
+	r := DockerCompose{
+		ComposeFile: "compose.yaml",
+		ProjectName: "ulab-v1-to-v2",
+	}
+
+	got := r.environment(nil)
+	if got["COMPOSE_PROJECT_NAME"] != "ulab-v1-to-v2" {
+		t.Fatalf("project = %q", got["COMPOSE_PROJECT_NAME"])
 	}
 }
