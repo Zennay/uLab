@@ -132,8 +132,11 @@ func TestArchivedProofVerifierChecksIntegrityAndBundleLinkage(t *testing.T) {
 		"sha256sum -c SHA256SUMS",
 		"manifest_sha256",
 		"config hash mismatch",
-		`"tool_commit\\\": \\\"$COMMIT\\\""`,
+		"tool_commit",
+		"json_status",
 		"expected one passed and one failed invocation bundle",
+		"verified live Gitea version: 1.26.0",
+		"verified live Gitea version: 1.27.3",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("archived proof verifier does not enforce %q", want)
