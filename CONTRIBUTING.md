@@ -62,6 +62,8 @@ Do not post credentials, tokens, private application output or unredacted secret
 
 External feedback only counts as product-validation evidence when it comes from an actual integration attempt. Hypothetical or AI-generated evaluations can guide exploration, but they are not adoption or maintainer evidence.
 
+For structured trials, follow [docs/EXTERNAL_VALIDATION.md](docs/EXTERNAL_VALIDATION.md). It defines the neutral measurement and debrief protocol used for onboarding/toil and maintainer-validation evidence.
+
 ## Security reports
 
 Do not use a normal pull request or public issue to disclose an exploitable vulnerability. Follow [SECURITY.md](SECURITY.md).
