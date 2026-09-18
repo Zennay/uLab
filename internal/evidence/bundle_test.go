@@ -130,3 +130,15 @@ func TestWriteBundleRejectsNestedID(t *testing.T) {
 		t.Fatal("expected nested evidence id to be rejected")
 	}
 }
+
+func TestWriteBundleRejectsAbsoluteID(t *testing.T) {
+	root := t.TempDir()
+	if _, err := WriteBundle(BundleInput{
+		Root:   root,
+		ID:     string(filepath.Separator),
+		Config: []byte("{}\n"),
+		Result: struct{}{},
+	}); err == nil {
+		t.Fatal("expected absolute evidence id to be rejected")
+	}
+}
