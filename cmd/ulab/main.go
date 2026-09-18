@@ -13,9 +13,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
-	"syscall"
 
 	"github.com/Zennay/ulab/internal/config"
 	"github.com/Zennay/ulab/internal/engine"
