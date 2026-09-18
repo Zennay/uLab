@@ -33,6 +33,7 @@ Project guides:
 - [Releasing](docs/RELEASING.md)
 - [First release checklist](docs/FIRST_RELEASE_CHECKLIST.md)
 - [Changelog](CHANGELOG.md)
+- [External validation protocol](docs/EXTERNAL_VALIDATION.md)
 
 ## Try the included fixture
 
