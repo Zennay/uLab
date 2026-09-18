@@ -145,3 +145,21 @@ func TestArchivedProofVerifierChecksIntegrityAndBundleLinkage(t *testing.T) {
 		}
 	}
 }
+
+func TestRuntimeProofCleansRunScopedComposeProjects(t *testing.T) {
+	data, err := os.ReadFile("../../scripts/validate-gitea-reference.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"gitea_project_prefixes",
+		`grep -E "^$PREFIX-"`,
+		`^$PREFIX-.*_gitea-data$`,
+		`^$PREFIX-.*_default$`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("runtime proof does not clean run-scoped Compose resources via %q", want)
+		}
+	}
+}
