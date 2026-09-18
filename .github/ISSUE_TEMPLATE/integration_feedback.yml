@@ -1,0 +1,116 @@
+name: External integration feedback
+description: Share evidence from trying uLab on a real project or release workflow.
+title: "[integration] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is for real project experience, including failed or negative results. uLab does not count AI-generated or hypothetical feedback as adoption evidence.
+  - type: input
+    id: project
+    attributes:
+      label: Project
+      description: Public repository or project name. If the project cannot be shared, explain why without exposing private details.
+      placeholder: "https://github.com/org/project"
+    validations:
+      required: true
+  - type: input
+    id: role
+    attributes:
+      label: Your relationship to the project
+      placeholder: "maintainer / contributor / release engineer / evaluator"
+    validations:
+      required: true
+  - type: textarea
+    id: existing_process
+    attributes:
+      label: How did you validate upgrades before uLab?
+      description: Describe the previous workflow, scripts, CI jobs, or manual steps.
+    validations:
+      required: true
+  - type: textarea
+    id: matrix
+    attributes:
+      label: Versions tested
+      placeholder: |
+        source versions:
+        target version:
+        runner:
+    validations:
+      required: true
+  - type: input
+    id: onboarding_minutes
+    attributes:
+      label: Approximate onboarding time
+      description: Minutes from starting the integration to the first meaningful uLab run. An estimate is fine; say if it was measured.
+      placeholder: "35 minutes, measured"
+    validations:
+      required: true
+  - type: input
+    id: manual_steps
+    attributes:
+      label: Approximate manual steps
+      description: How many meaningful setup/run/inspection steps were needed?
+      placeholder: "6"
+    validations:
+      required: false
+  - type: textarea
+    id: ulab_owned
+    attributes:
+      label: What did uLab actually replace or simplify?
+      description: Focus on matrix execution, isolation, cleanup, evidence, release gating, or other orchestration glue.
+    validations:
+      required: true
+  - type: textarea
+    id: project_owned
+    attributes:
+      label: What still had to remain project-specific?
+      description: Include setup, upgrade, verification semantics, credentials, fixtures, or workarounds.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Biggest friction
+      description: What made the integration slower, confusing, brittle, or not worth using?
+    validations:
+      required: true
+  - type: dropdown
+    id: future_use
+    attributes:
+      label: Based on this test, would you use uLab again for a real upgrade path?
+      options:
+        - "Yes"
+        - "Maybe"
+        - "No"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why?
+      description: The reasoning matters more than the choice above.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence or reproduction details
+      description: Link or summarize the relevant uLab evidence. Redact secrets before posting.
+      placeholder: |
+        uLab version/commit:
+        evidence bundle:
+        config hash:
+        runtime:
+        notable failure/success:
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: This feedback is based on an actual integration attempt, not a hypothetical evaluation.
+          required: true
+        - label: I removed secrets and credentials from public evidence.
+          required: true
