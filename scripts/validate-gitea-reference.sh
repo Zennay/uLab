@@ -4,7 +4,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir mktemp rm; do
+for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir mktemp rm sort awk dirname basename; do
   command -v "$COMMAND" >/dev/null 2>&1 || {
     echo "$COMMAND is required for the Gitea runtime proof" >&2
     exit 1
@@ -55,6 +55,31 @@ json_escape() {
   printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
 }
 
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1"
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1"
+  else
+    echo "sha256sum or shasum is required for proof integrity" >&2
+    exit 1
+  fi
+}
+
+verify_sha256_manifest() {
+  manifest="$1"
+  manifest_dir=$(dirname -- "$manifest")
+  manifest_base=$(basename -- "$manifest")
+  if command -v sha256sum >/dev/null 2>&1; then
+    (cd "$manifest_dir" && sha256sum -c "$manifest_base")
+  elif command -v shasum >/dev/null 2>&1; then
+    (cd "$manifest_dir" && shasum -a 256 -c "$manifest_base")
+  else
+    echo "sha256sum or shasum is required for proof integrity" >&2
+    exit 1
+  fi
+}
+
 if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git status --porcelain --untracked-files=normal)" ]; then
   echo "Gitea runtime proof requires a clean working tree" >&2
   exit 1
@@ -87,6 +112,9 @@ PASS_SECONDS=$(( $(date +%s) - PASS_START ))
 grep -Eq '^1\.26\.0[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
 grep -Eq '^1\.26\.4[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
 grep -Fq '"status": "passed"' "$WORK/pass.json"
+grep -Fq 'verified live Gitea version: 1.26.0' "$WORK/pass.json"
+grep -Fq 'verified live Gitea version: 1.26.4' "$WORK/pass.json"
+grep -Fq 'verified live Gitea version: 1.27.3' "$WORK/pass.json"
 
 echo "==> run deliberate Gitea assertion failure"
 FAIL_START=$(date +%s)
@@ -108,6 +136,8 @@ fi
 grep -Eq '^1\.26\.4[[:space:]]+1\.27\.3[[:space:]]+failed$' "$WORK/fail.out"
 grep -Fq 'compatibility policy failed' "$WORK/fail.err"
 grep -Fq '"status": "failed"' "$WORK/fail.json"
+grep -Fq 'verified live Gitea version: 1.26.4' "$WORK/fail.json"
+grep -Fq 'verified live Gitea version: 1.27.3' "$WORK/fail.json"
 
 BUNDLES=$(find "$EVIDENCE" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 if [ "$BUNDLES" -ne 2 ]; then
@@ -188,6 +218,7 @@ cat > "$EVIDENCE/proof-summary.json" <<EOF
     "networks": "clean"
   },
   "evidence_bundle_count": $BUNDLES,
+  "live_version_assertions": ["1.26.0", "1.26.4", "1.27.3"],
   "images": {
     "1.26.0": $GITEA_1260_DIGESTS,
     "1.26.4": $GITEA_1264_DIGESTS,
@@ -208,7 +239,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 )
 
@@ -221,7 +251,6 @@ func main() {
 	if err := json.Unmarshal(data, &value); err != nil {
 		panic(err)
 	}
-	fmt.Println("proof summary JSON valid")
 }
 EOF
 go run "$WORK/check-proof-json.go" "$EVIDENCE/proof-summary.json" >/dev/null
@@ -241,7 +270,32 @@ Cleanup: containers, volumes and networks clean
 
 See proof-summary.json for machine-readable proof metadata.
 See the individual bundle directories for exact configs, results and reproduction metadata.
+Verify this archived proof later with:
+  sh scripts/verify-gitea-proof.sh $EVIDENCE
 EOF
+
+echo "==> seal proof artifacts with SHA-256"
+(
+  cd "$EVIDENCE"
+  find . -type f ! -name SHA256SUMS ! -name PROOF_COMPLETE | LC_ALL=C sort |
+    while IFS= read -r FILE; do
+      if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$FILE"
+      else
+        shasum -a 256 "$FILE"
+      fi
+    done
+) > "$EVIDENCE/SHA256SUMS"
+
+verify_sha256_manifest "$EVIDENCE/SHA256SUMS" >/dev/null
+MANIFEST_SHA=$(sha256_file "$EVIDENCE/SHA256SUMS" | awk '{print $1}')
+cat > "$EVIDENCE/PROOF_COMPLETE" <<EOF
+status=passed
+tool_commit=$COMMIT
+manifest_sha256=$MANIFEST_SHA
+EOF
+
+sh scripts/verify-gitea-proof.sh "$EVIDENCE" >/dev/null
 
 echo "Gitea runtime proof passed"
 echo "evidence preserved at: $EVIDENCE"
