@@ -4,7 +4,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-for COMMAND in git go docker curl grep find cp sed uname; do
+for COMMAND in git go docker curl grep find cp sed uname date wc tr cat mkdir; do
   command -v "$COMMAND" >/dev/null 2>&1 || {
     echo "$COMMAND is required for the Gitea runtime proof" >&2
     exit 1
@@ -18,7 +18,26 @@ BIN="$WORK/ulab"
 SESSION=$(date -u +%Y%m%dT%H%M%SZ)-$$
 EVIDENCE="${ULAB_GITEA_EVIDENCE_ROOT:-.ulab/gitea-reference-runs/$SESSION}"
 
+preserve_work_artifacts() {
+  FOUND=0
+  for FILE in pass.json pass.out fail.json fail.out fail.err; do
+    if [ -f "$WORK/$FILE" ]; then
+      FOUND=1
+      break
+    fi
+  done
+  [ "$FOUND" -eq 1 ] || return 0
+
+  mkdir -p "$EVIDENCE" || return 0
+  [ ! -f "$WORK/pass.json" ] || cp "$WORK/pass.json" "$EVIDENCE/matrix-pass.json" || true
+  [ ! -f "$WORK/pass.out" ] || cp "$WORK/pass.out" "$EVIDENCE/matrix-pass.txt" || true
+  [ ! -f "$WORK/fail.json" ] || cp "$WORK/fail.json" "$EVIDENCE/deliberate-failure.json" || true
+  [ ! -f "$WORK/fail.out" ] || cp "$WORK/fail.out" "$EVIDENCE/deliberate-failure.txt" || true
+  [ ! -f "$WORK/fail.err" ] || cp "$WORK/fail.err" "$EVIDENCE/deliberate-failure.stderr.txt" || true
+}
+
 cleanup() {
+  preserve_work_artifacts
   for PROJECT in \
     ulab-1-26-0-to-1-27-3 \
     ulab-1-26-4-to-1-27-3
@@ -113,18 +132,15 @@ do
   fi
 done
 
-echo "==> preserve proof-level artifacts"
-cp "$WORK/pass.json" "$EVIDENCE/matrix-pass.json"
-cp "$WORK/pass.out" "$EVIDENCE/matrix-pass.txt"
-cp "$WORK/fail.json" "$EVIDENCE/deliberate-failure.json"
-cp "$WORK/fail.out" "$EVIDENCE/deliberate-failure.txt"
-cp "$WORK/fail.err" "$EVIDENCE/deliberate-failure.stderr.txt"
+echo "==> capture auditable proof metadata"
+preserve_work_artifacts
 
 GITEA_1260_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.0)
 GITEA_1264_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.4)
 GITEA_1273_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.27.3)
 GO_VERSION=$(go version)
-DOCKER_VERSION=$(docker version --format '{{.Client.Version}}')
+DOCKER_CLIENT_VERSION=$(docker version --format '{{.Client.Version}}')
+DOCKER_SERVER_VERSION=$(docker version --format '{{.Server.Version}}')
 COMPOSE_VERSION=$(docker compose version --short)
 HOST_UNAME=$(uname -a)
 FINISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -168,28 +184,52 @@ cat > "$EVIDENCE/proof-summary.json" <<EOF
   },
   "environment": {
     "go": "$(json_escape "$GO_VERSION")",
-    "docker_client": "$(json_escape "$DOCKER_VERSION")",
+    "docker_client": "$(json_escape "$DOCKER_CLIENT_VERSION")",
+    "docker_server": "$(json_escape "$DOCKER_SERVER_VERSION")",
     "docker_compose": "$(json_escape "$COMPOSE_VERSION")",
     "host": "$(json_escape "$HOST_UNAME")"
   }
 }
 EOF
 
-cat > "$EVIDENCE/README.md" <<EOF
-# Gitea runtime proof
+cat > "$WORK/check-proof-json.go" <<'EOF'
+package main
 
-Status: **passed**
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
 
-- uLab commit: `$COMMIT`
-- started: $STARTED_AT
-- finished: $FINISHED_AT
-- passing matrix wall time: ${PASS_SECONDS}s
-- deliberate failure wall time: ${FAIL_SECONDS}s
-- total proof wall time: ${TOTAL_SECONDS}s
-- evidence bundles: $BUNDLES
-- cleanup: containers, volumes and networks clean
+func main() {
+	data, err := os.ReadFile(os.Args[1])
+	if err != nil {
+		panic(err)
+	}
+	var value any
+	if err := json.Unmarshal(data, &value); err != nil {
+		panic(err)
+	}
+	fmt.Println("proof summary JSON valid")
+}
+EOF
+go run "$WORK/check-proof-json.go" "$EVIDENCE/proof-summary.json" >/dev/null
 
-See `proof-summary.json` for machine-readable proof metadata and the individual bundle directories for exact configs, results and reproduction metadata.
+cat > "$EVIDENCE/PROOF.txt" <<EOF
+Gitea runtime proof
+
+Status: passed
+uLab commit: $COMMIT
+Started: $STARTED_AT
+Finished: $FINISHED_AT
+Passing matrix wall time: ${PASS_SECONDS}s
+Deliberate failure wall time: ${FAIL_SECONDS}s
+Total proof wall time: ${TOTAL_SECONDS}s
+Evidence bundles: $BUNDLES
+Cleanup: containers, volumes and networks clean
+
+See proof-summary.json for machine-readable proof metadata.
+See the individual bundle directories for exact configs, results and reproduction metadata.
 EOF
 
 echo "Gitea runtime proof passed"
