@@ -45,6 +45,15 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 			defer wg.Done()
 			for index := range indices {
 				plan := plans[index]
+				if ctx.Err() != nil {
+					result.Runs[index] = engine.RunResult{
+						SourceVersion: plan.SourceVersion,
+						TargetVersion: plan.TargetVersion,
+						Status:        engine.StatusCanceled,
+						FailureKind:   engine.FailureCanceled,
+					}
+					continue
+				}
 				selectedRunner, err := m.RunnerFactory(plan)
 				if err != nil {
 					result.Runs[index] = engine.RunResult{
@@ -67,7 +76,7 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 	wg.Wait()
 
 	for _, run := range result.Runs {
-		if run.Status == engine.StatusFailed {
+		if run.Status != engine.StatusPassed {
 			result.Status = engine.StatusFailed
 			break
 		}
