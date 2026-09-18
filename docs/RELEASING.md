@@ -10,6 +10,16 @@ uLab's release flow is intentionally local and zero-cost. It does not require Gi
 
 Docker is not required to package the CLI. Docker is only needed for the Docker Compose integration fixture.
 
+## Validate before packaging
+
+Run the local acceptance path from the exact revision you intend to package:
+
+```sh
+sh scripts/validate-local.sh
+```
+
+This validates unit tests, static analysis, bounded matrix execution, a passing three-source release candidate, an intentionally failing path, the non-zero compatibility gate and persistent evidence output without using GitHub-hosted runners.
+
 ## Create a release candidate
 
 Start from the exact commit you want to publish and make sure the working tree is clean.
