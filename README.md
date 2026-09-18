@@ -55,7 +55,7 @@ go run ./cmd/ulab test \
 
 ## Evidence and reproduction
 
-Each invocation of `ulab test` writes a bundle under `.ulab/runs/<invocation-id>/` containing:
+Each invocation of `ulab test` publishes a bundle under `.ulab/runs/<invocation-id>/` only after its snapshots and metadata have been written successfully, so a normal write failure cannot expose a half-complete invocation directory. Each bundle contains:
 
 - the exact config bytes used for the run;
 - `result.json`;

@@ -59,6 +59,10 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	if input.ID == "" {
 		return BundlePaths{}, errors.New("evidence bundle id is required")
 	}
+	if filepath.IsAbs(input.ID) || filepath.Base(input.ID) != input.ID || input.ID == "." || input.ID == ".." {
+		return BundlePaths{}, fmt.Errorf("invalid evidence bundle id %q", input.ID)
+	}
+
 	root := input.Root
 	if root == "" {
 		root = filepath.Join(".ulab", "runs")
@@ -68,26 +72,38 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	}
 
 	dir := filepath.Join(root, input.ID)
-	if err := os.Mkdir(dir, 0o755); err != nil {
-		return BundlePaths{}, fmt.Errorf("create evidence bundle: %w", err)
+	if _, err := os.Stat(dir); err == nil {
+		return BundlePaths{}, fmt.Errorf("create evidence bundle: %s already exists", dir)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return BundlePaths{}, fmt.Errorf("inspect evidence bundle: %w", err)
 	}
-	complete := false
+
+	tempDir, err := os.MkdirTemp(root, ".bundle-tmp-")
+	if err != nil {
+		return BundlePaths{}, fmt.Errorf("create temporary evidence bundle: %w", err)
+	}
+	if err := os.Chmod(tempDir, 0o755); err != nil {
+		_ = os.RemoveAll(tempDir)
+		return BundlePaths{}, fmt.Errorf("set evidence bundle permissions: %w", err)
+	}
+
+	published := false
 	defer func() {
-		if !complete {
-			_ = os.RemoveAll(dir)
+		if !published {
+			_ = os.RemoveAll(tempDir)
 		}
 	}()
 
-	paths = BundlePaths{
-		Dir:      dir,
-		Config:   filepath.Join(dir, "config.json"),
-		Result:   filepath.Join(dir, "result.json"),
-		Metadata: filepath.Join(dir, "metadata.json"),
+	tempPaths := BundlePaths{
+		Dir:      tempDir,
+		Config:   filepath.Join(tempDir, "config.json"),
+		Result:   filepath.Join(tempDir, "result.json"),
+		Metadata: filepath.Join(tempDir, "metadata.json"),
 	}
-	if err := os.WriteFile(paths.Config, input.Config, 0o644); err != nil {
+	if err := os.WriteFile(tempPaths.Config, input.Config, 0o644); err != nil {
 		return BundlePaths{}, fmt.Errorf("write config snapshot: %w", err)
 	}
-	if err := WriteJSON(paths.Result, input.Result); err != nil {
+	if err := WriteJSON(tempPaths.Result, input.Result); err != nil {
 		return BundlePaths{}, fmt.Errorf("write result snapshot: %w", err)
 	}
 
@@ -104,10 +120,19 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	} else {
 		metadata.CreatedAt = metadata.CreatedAt.UTC()
 	}
-	if err := WriteJSON(paths.Metadata, metadata); err != nil {
+	if err := WriteJSON(tempPaths.Metadata, metadata); err != nil {
 		return BundlePaths{}, fmt.Errorf("write evidence metadata: %w", err)
 	}
 
-	complete = true
-	return paths, nil
+	if err := os.Rename(tempDir, dir); err != nil {
+		return BundlePaths{}, fmt.Errorf("publish evidence bundle: %w", err)
+	}
+	published = true
+
+	return BundlePaths{
+		Dir:      dir,
+		Config:   filepath.Join(dir, "config.json"),
+		Result:   filepath.Join(dir, "result.json"),
+		Metadata: filepath.Join(dir, "metadata.json"),
+	}, nil
 }
