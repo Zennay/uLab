@@ -66,9 +66,19 @@ A successful run is preserved under `.ulab/gitea-reference-runs/<session>/`. Alo
 - `proof-summary.json` — machine-readable M3 proof metadata;
 - `PROOF.txt` — human-readable proof summary;
 - `matrix-pass.json` and `matrix-pass.txt`;
-- `deliberate-failure.json`, stdout and stderr captures.
+- `deliberate-failure.json`, stdout and stderr captures;
+- `SHA256SUMS` covering the archived proof artifacts;
+- `PROOF_COMPLETE` binding the completed proof to the uLab commit and checksum-manifest digest.
 
 These proof-level artifacts make a later audit distinguish the exact code revision, container images, environment and observed behavior rather than relying on a screenshot or an unversioned claim.
+
+After archiving or copying a successful proof directory, verify its integrity and internal linkage without rerunning Docker:
+
+```sh
+sh scripts/verify-gitea-proof.sh .ulab/gitea-reference-runs/<session>
+```
+
+This detects accidental or untracked changes to the archived evidence. It is an integrity check, not a cryptographic identity signature.
 
 For manual inspection, the passing matrix is:
 
