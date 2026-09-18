@@ -95,3 +95,38 @@ func TestWriteBundleRefusesToOverwriteExistingBundle(t *testing.T) {
 		t.Fatalf("original bundle was damaged: %v", err)
 	}
 }
+
+func TestWriteBundleFailureDoesNotPublishPartialBundle(t *testing.T) {
+	root := t.TempDir()
+	_, err := WriteBundle(BundleInput{
+		Root:   root,
+		ID:     "broken",
+		Config: []byte("{}\n"),
+		Result: func() {},
+	})
+	if err == nil {
+		t.Fatal("expected result serialization failure")
+	}
+	if _, statErr := os.Stat(filepath.Join(root, "broken")); !os.IsNotExist(statErr) {
+		t.Fatalf("partial bundle was published: %v", statErr)
+	}
+	tempDirs, globErr := filepath.Glob(filepath.Join(root, ".bundle-tmp-*"))
+	if globErr != nil {
+		t.Fatal(globErr)
+	}
+	if len(tempDirs) != 0 {
+		t.Fatalf("temporary bundle directories were not cleaned: %#v", tempDirs)
+	}
+}
+
+func TestWriteBundleRejectsNestedID(t *testing.T) {
+	root := t.TempDir()
+	if _, err := WriteBundle(BundleInput{
+		Root:   root,
+		ID:     filepath.Join("nested", "run"),
+		Config: []byte("{}\n"),
+		Result: struct{}{},
+	}); err == nil {
+		t.Fatal("expected nested evidence id to be rejected")
+	}
+}
