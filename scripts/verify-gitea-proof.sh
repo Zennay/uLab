@@ -12,7 +12,7 @@ if [ ! -d "$EVIDENCE" ]; then
   exit 1
 fi
 
-for COMMAND in go grep find sed wc tr awk mktemp rm dirname basename; do
+for COMMAND in go grep find sed wc tr awk mktemp rm; do
   command -v "$COMMAND" >/dev/null 2>&1 || {
     echo "$COMMAND is required to verify Gitea proof evidence" >&2
     exit 1
@@ -28,6 +28,10 @@ sha256_file() {
     echo "sha256sum or shasum is required to verify Gitea proof evidence" >&2
     exit 1
   fi
+}
+
+json_status() {
+  sed -n 's/^[[:space:]]*"status": "\([^"]*\)".*/\1/p' "$1" | sed -n '1p'
 }
 
 test -f "$EVIDENCE/SHA256SUMS"
@@ -56,12 +60,17 @@ if [ -z "$COMMIT" ]; then
   exit 1
 fi
 
-grep -Fq 'status=passed' "$EVIDENCE/PROOF_COMPLETE"
-grep -Fq '"status": "passed"' "$EVIDENCE/proof-summary.json"
+grep -Fxq 'status=passed' "$EVIDENCE/PROOF_COMPLETE"
+if [ "$(json_status "$EVIDENCE/proof-summary.json")" != "passed" ]; then
+  echo "proof summary is not passed" >&2
+  exit 1
+fi
+
 grep -Fq "\"tool_commit\": \"$COMMIT\"" "$EVIDENCE/proof-summary.json"
 grep -Fq '"source_versions": ["1.26.0", "1.26.4"]' "$EVIDENCE/proof-summary.json"
 grep -Fq '"target_version": "1.27.3"' "$EVIDENCE/proof-summary.json"
 grep -Fq '"compatibility_gate": "detected"' "$EVIDENCE/proof-summary.json"
+grep -Fq '"live_version_assertions": ["1.26.0", "1.26.4", "1.27.3"]' "$EVIDENCE/proof-summary.json"
 grep -Fq '"containers": "clean"' "$EVIDENCE/proof-summary.json"
 grep -Fq '"volumes": "clean"' "$EVIDENCE/proof-summary.json"
 grep -Fq '"networks": "clean"' "$EVIDENCE/proof-summary.json"
@@ -89,7 +98,19 @@ func main() {
 	}
 }
 EOF
-go run "$WORK/check-json.go"   "$EVIDENCE/proof-summary.json"   "$EVIDENCE/matrix-pass.json"   "$EVIDENCE/deliberate-failure.json" >/dev/null
+go run "$WORK/check-json.go" \
+  "$EVIDENCE/proof-summary.json" \
+  "$EVIDENCE/matrix-pass.json" \
+  "$EVIDENCE/deliberate-failure.json" >/dev/null
+
+if [ "$(json_status "$EVIDENCE/matrix-pass.json")" != "passed" ]; then
+  echo "passing matrix artifact is not passed" >&2
+  exit 1
+fi
+if [ "$(json_status "$EVIDENCE/deliberate-failure.json")" != "failed" ]; then
+  echo "deliberate failure artifact is not failed" >&2
+  exit 1
+fi
 
 BUNDLES=$(find "$EVIDENCE" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
 if [ "$BUNDLES" -ne 2 ]; then
@@ -113,12 +134,15 @@ for BUNDLE in "$EVIDENCE"/*; do
     exit 1
   fi
 
-  if grep -Fq '"status": "passed"' "$BUNDLE/result.json"; then
-    PASSED_BUNDLES=$((PASSED_BUNDLES + 1))
-  fi
-  if grep -Fq '"status": "failed"' "$BUNDLE/result.json"; then
-    FAILED_BUNDLES=$((FAILED_BUNDLES + 1))
-  fi
+  STATUS=$(json_status "$BUNDLE/result.json")
+  case "$STATUS" in
+    passed) PASSED_BUNDLES=$((PASSED_BUNDLES + 1)) ;;
+    failed) FAILED_BUNDLES=$((FAILED_BUNDLES + 1)) ;;
+    *)
+      echo "unexpected bundle status in $BUNDLE: $STATUS" >&2
+      exit 1
+      ;;
+  esac
 done
 
 if [ "$PASSED_BUNDLES" -ne 1 ] || [ "$FAILED_BUNDLES" -ne 1 ]; then
@@ -129,8 +153,11 @@ fi
 grep -Fq '"source_version": "1.26.0"' "$EVIDENCE/matrix-pass.json"
 grep -Fq '"source_version": "1.26.4"' "$EVIDENCE/matrix-pass.json"
 grep -Fq '"target_version": "1.27.3"' "$EVIDENCE/matrix-pass.json"
-grep -Fq '"status": "passed"' "$EVIDENCE/matrix-pass.json"
-grep -Fq '"status": "failed"' "$EVIDENCE/deliberate-failure.json"
+grep -Fq 'verified live Gitea version: 1.26.0' "$EVIDENCE/matrix-pass.json"
+grep -Fq 'verified live Gitea version: 1.26.4' "$EVIDENCE/matrix-pass.json"
+grep -Fq 'verified live Gitea version: 1.27.3' "$EVIDENCE/matrix-pass.json"
+grep -Fq 'verified live Gitea version: 1.26.4' "$EVIDENCE/deliberate-failure.json"
+grep -Fq 'verified live Gitea version: 1.27.3' "$EVIDENCE/deliberate-failure.json"
 
 echo "Gitea proof evidence verified"
 echo "tool commit: $COMMIT"
