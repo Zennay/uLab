@@ -7,7 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Zennay/ulab/internal/config"
 	"github.com/Zennay/ulab/internal/engine"
@@ -15,6 +19,11 @@ import (
 	"github.com/Zennay/ulab/internal/executor"
 	"github.com/Zennay/ulab/internal/matrix"
 	"github.com/Zennay/ulab/internal/runner"
+)
+
+var (
+	version = "dev"
+	commit  = "unknown"
 )
 
 func main() {
@@ -29,6 +38,9 @@ func main() {
 		err = runInit(os.Args[2:])
 	case "test":
 		err = runTest(os.Args[2:])
+	case "version":
+		fmt.Printf("ulab %s (%s)\n", version, commit)
+		return
 	default:
 		usage()
 		os.Exit(2)
@@ -41,7 +53,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ulab <init|test>")
+	fmt.Fprintln(os.Stderr, "usage: ulab <init|test|version>")
 }
 
 func runInit(args []string) error {
@@ -80,6 +92,7 @@ func runTest(args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	configPath := fs.String("config", "ulab.json", "config path")
 	jsonOut := fs.String("json-out", "ulab-result.json", "result path")
+	evidenceRoot := fs.String("evidence-root", filepath.Join(".ulab", "runs"), "persistent evidence root")
 	jobs := fs.Int("jobs", 1, "maximum concurrent upgrade paths")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -88,6 +101,11 @@ func runTest(args []string) error {
 		return errors.New("jobs must be at least 1")
 	}
 
+	startedAt := time.Now().UTC()
+	configBytes, err := os.ReadFile(*configPath)
+	if err != nil {
+		return err
+	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		return err
@@ -104,10 +122,45 @@ func runTest(args []string) error {
 		return err
 	}
 
+	invocationID := evidence.NewInvocationID(startedAt)
+	workingDirectory, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	snapshotPath := filepath.Join(*evidenceRoot, invocationID, "config.json")
+	reproduceCommand := []string{
+		"ulab", "test",
+		"--config", snapshotPath,
+		"--jobs", strconv.Itoa(*jobs),
+		"--evidence-root", *evidenceRoot,
+	}
+	paths, err := evidence.WriteBundle(evidence.BundleInput{
+		Root:       *evidenceRoot,
+		ID:         invocationID,
+		ConfigPath: *configPath,
+		Config:     configBytes,
+		Result:     result,
+		Metadata: evidence.BundleMetadata{
+			CreatedAt:        startedAt,
+			WorkingDirectory: workingDirectory,
+			ReproduceCommand: reproduceCommand,
+			Jobs:             *jobs,
+			SourceVersions:   append([]string(nil), cfg.Versions.From...),
+			TargetVersion:    cfg.Versions.To,
+			ToolVersion:      version,
+			ToolCommit:       commit,
+			GoVersion:        runtime.Version(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("target %s: %s\n", result.TargetVersion, result.Status)
 	for _, run := range result.Runs {
 		fmt.Printf("  %-12s -> %-12s %s\n", run.SourceVersion, run.TargetVersion, run.Status)
 	}
+	fmt.Println("evidence:", paths.Dir)
 	if cfg.Policy.RequireAllPaths && result.Status == engine.StatusFailed {
 		return errors.New("compatibility policy failed")
 	}
