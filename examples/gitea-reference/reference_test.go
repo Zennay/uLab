@@ -88,3 +88,33 @@ func TestRuntimeProofPreservesAuditMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestReferenceAssertsLiveSourceAndTargetVersions(t *testing.T) {
+	setup, err := os.ReadFile("scripts/setup.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(setup), `assert_gitea_version "$ULAB_SOURCE_VERSION"`) {
+		t.Fatal("setup must assert the live source release before seeding state")
+	}
+
+	verify, err := os.ReadFile("scripts/verify.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(verify), `assert_gitea_version "$ULAB_TARGET_VERSION"`) {
+		t.Fatal("verify must assert the live target release after upgrade")
+	}
+
+	common, err := os.ReadFile("scripts/common.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	commonText := string(common)
+	if !strings.Contains(commonText, `grep -Fq "\"version\":\"$expected_version\""`) {
+		t.Fatal("version assertion must match the complete reported release value")
+	}
+	if !strings.Contains(commonText, "verified live Gitea version: $expected_version") {
+		t.Fatal("successful live-version assertions must be visible in run evidence")
+	}
+}

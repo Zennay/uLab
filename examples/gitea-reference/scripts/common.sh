@@ -21,6 +21,17 @@ wait_for_gitea() {
   return 1
 }
 
+assert_gitea_version() {
+  expected_version="$1"
+  version_json=$(curl -fsS "$GITEA_BASE_URL/api/v1/version")
+  if ! printf '%s' "$version_json" | grep -Fq "\"version\":\"$expected_version\""; then
+    echo "expected live Gitea version $expected_version" >&2
+    echo "version endpoint returned: $version_json" >&2
+    return 1
+  fi
+  echo "verified live Gitea version: $expected_version"
+}
+
 api_get() {
   path="$1"
   curl -fsS -u "$GITEA_TEST_USER:$GITEA_TEST_PASSWORD" "$GITEA_BASE_URL$path"
