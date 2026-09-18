@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
+	"syscall"
 
 	"github.com/Zennay/ulab/internal/config"
 	"github.com/Zennay/ulab/internal/engine"
@@ -91,6 +93,12 @@ func runInit(args []string) error {
 }
 
 func runTest(args []string) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runTestContext(ctx, args)
+}
+
+func runTestContext(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	configPath := fs.String("config", "ulab.json", "config path")
 	jsonOut := fs.String("json-out", "ulab-result.json", "result path")
@@ -119,7 +127,7 @@ func runTest(args []string) error {
 			return buildRunner(cfg, plan)
 		},
 	}
-	result := m.Run(context.Background(), cfg.Plans())
+	result := m.Run(ctx, cfg.Plans())
 	if err := evidence.WriteJSON(*jsonOut, result); err != nil {
 		return err
 	}
