@@ -8,7 +8,9 @@ command -v go >/dev/null 2>&1 || { echo "go is required" >&2; exit 1; }
 command -v git >/dev/null 2>&1 || { echo "git is required" >&2; exit 1; }
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ulab-validation.XXXXXX")
-trap 'rm -rf "$WORK"' EXIT INT TERM
+trap 'rm -rf "$WORK"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 COMMIT=$(git rev-parse --verify HEAD)
 BIN="$WORK/ulab"
@@ -18,6 +20,10 @@ export ULAB_VALIDATION_STATE_DIR="$WORK/state"
 echo "==> shell syntax"
 for script in scripts/*.sh examples/gitea-reference/scripts/*.sh; do
   sh -n "$script"
+  if grep -Eq "trap .*EXIT.*(INT|TERM)|trap .*(INT|TERM).*EXIT" "$script"; then
+    echo "signal traps must exit separately from EXIT cleanup: $script" >&2
+    exit 1
+  fi
 done
 
 echo "==> unit tests"
