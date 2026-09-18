@@ -39,7 +39,7 @@ go run ./cmd/ulab test \
 
 ## Evidence and reproduction
 
-Each successful invocation of `ulab test` writes a bundle under `.ulab/runs/<invocation-id>/` containing:
+Each invocation of `ulab test` writes a bundle under `.ulab/runs/<invocation-id>/` containing:
 
 - the exact config bytes used for the run;
 - `result.json`;
@@ -83,6 +83,16 @@ ULAB_TARGET_VERSION
 ```
 
 For Docker Compose runs, uLab also isolates Compose project names and performs cleanup after each path.
+
+## Validate locally
+
+The canonical validation path consumes no GitHub-hosted runner minutes or credits:
+
+```sh
+sh scripts/validate-local.sh
+```
+
+It runs the Go test suite and `go vet`, builds a revision-stamped binary, exercises three source versions with `--jobs 2`, verifies the terminal compatibility matrix, then deliberately fails one path and checks the non-zero release gate plus persistent evidence output. Docker is not required for this deterministic core validation.
 
 ## Local release artifacts
 
