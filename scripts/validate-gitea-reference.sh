@@ -4,7 +4,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$ROOT"
 
-for COMMAND in git go docker curl grep find; do
+for COMMAND in git go docker curl grep find cp sed uname; do
   command -v "$COMMAND" >/dev/null 2>&1 || {
     echo "$COMMAND is required for the Gitea runtime proof" >&2
     exit 1
@@ -32,7 +32,13 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+json_escape() {
+  printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
 COMMIT=$(git rev-parse --verify HEAD)
+STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+START_EPOCH=$(date +%s)
 
 echo "==> build revision-stamped uLab binary"
 go build -trimpath -buildvcs=false \
@@ -40,17 +46,20 @@ go build -trimpath -buildvcs=false \
   -o "$BIN" ./cmd/ulab
 
 echo "==> run real Gitea upgrade matrix"
+PASS_START=$(date +%s)
 "$BIN" test \
   --jobs 1 \
   --config examples/gitea-reference/ulab.json \
   --json-out "$WORK/pass.json" \
   --evidence-root "$EVIDENCE" > "$WORK/pass.out"
+PASS_SECONDS=$(( $(date +%s) - PASS_START ))
 
 grep -Eq '^1\.26\.0[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
 grep -Eq '^1\.26\.4[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
 grep -Fq '"status": "passed"' "$WORK/pass.json"
 
 echo "==> run deliberate Gitea assertion failure"
+FAIL_START=$(date +%s)
 set +e
 "$BIN" test \
   --jobs 1 \
@@ -59,6 +68,7 @@ set +e
   --evidence-root "$EVIDENCE" > "$WORK/fail.out" 2> "$WORK/fail.err"
 FAIL_RC=$?
 set -e
+FAIL_SECONDS=$(( $(date +%s) - FAIL_START ))
 
 if [ "$FAIL_RC" -ne 1 ]; then
   echo "expected deliberate Gitea failure to exit 1, got $FAIL_RC" >&2
@@ -76,6 +86,7 @@ if [ "$BUNDLES" -ne 2 ]; then
 fi
 
 for BUNDLE in "$EVIDENCE"/*; do
+  [ -d "$BUNDLE" ] || continue
   test -f "$BUNDLE/config.json"
   test -f "$BUNDLE/result.json"
   test -f "$BUNDLE/metadata.json"
@@ -101,6 +112,85 @@ do
     exit 1
   fi
 done
+
+echo "==> preserve proof-level artifacts"
+cp "$WORK/pass.json" "$EVIDENCE/matrix-pass.json"
+cp "$WORK/pass.out" "$EVIDENCE/matrix-pass.txt"
+cp "$WORK/fail.json" "$EVIDENCE/deliberate-failure.json"
+cp "$WORK/fail.out" "$EVIDENCE/deliberate-failure.txt"
+cp "$WORK/fail.err" "$EVIDENCE/deliberate-failure.stderr.txt"
+
+GITEA_1260_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.0)
+GITEA_1264_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.26.4)
+GITEA_1273_DIGESTS=$(docker image inspect --format '{{json .RepoDigests}}' docker.gitea.com/gitea:1.27.3)
+GO_VERSION=$(go version)
+DOCKER_VERSION=$(docker version --format '{{.Client.Version}}')
+COMPOSE_VERSION=$(docker compose version --short)
+HOST_UNAME=$(uname -a)
+FINISHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+TOTAL_SECONDS=$(( $(date +%s) - START_EPOCH ))
+
+cat > "$EVIDENCE/proof-summary.json" <<EOF
+{
+  "schema_version": 1,
+  "subject": "gitea-reference",
+  "status": "passed",
+  "started_at": "$STARTED_AT",
+  "finished_at": "$FINISHED_AT",
+  "tool_commit": "$COMMIT",
+  "matrix": {
+    "source_versions": ["1.26.0", "1.26.4"],
+    "target_version": "1.27.3",
+    "jobs": 1,
+    "result": "passed"
+  },
+  "deliberate_failure": {
+    "source_version": "1.26.4",
+    "target_version": "1.27.3",
+    "process_exit_code": $FAIL_RC,
+    "compatibility_gate": "detected"
+  },
+  "durations_seconds": {
+    "passing_matrix": $PASS_SECONDS,
+    "deliberate_failure": $FAIL_SECONDS,
+    "total_proof": $TOTAL_SECONDS
+  },
+  "cleanup": {
+    "containers": "clean",
+    "volumes": "clean",
+    "networks": "clean"
+  },
+  "evidence_bundle_count": $BUNDLES,
+  "images": {
+    "1.26.0": $GITEA_1260_DIGESTS,
+    "1.26.4": $GITEA_1264_DIGESTS,
+    "1.27.3": $GITEA_1273_DIGESTS
+  },
+  "environment": {
+    "go": "$(json_escape "$GO_VERSION")",
+    "docker_client": "$(json_escape "$DOCKER_VERSION")",
+    "docker_compose": "$(json_escape "$COMPOSE_VERSION")",
+    "host": "$(json_escape "$HOST_UNAME")"
+  }
+}
+EOF
+
+cat > "$EVIDENCE/README.md" <<EOF
+# Gitea runtime proof
+
+Status: **passed**
+
+- uLab commit: `$COMMIT`
+- started: $STARTED_AT
+- finished: $FINISHED_AT
+- passing matrix wall time: ${PASS_SECONDS}s
+- deliberate failure wall time: ${FAIL_SECONDS}s
+- total proof wall time: ${TOTAL_SECONDS}s
+- evidence bundles: $BUNDLES
+- cleanup: containers, volumes and networks clean
+
+See `proof-summary.json` for machine-readable proof metadata and the individual bundle directories for exact configs, results and reproduction metadata.
+EOF
 
 echo "Gitea runtime proof passed"
 echo "evidence preserved at: $EVIDENCE"
