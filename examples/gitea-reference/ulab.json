@@ -1,0 +1,22 @@
+{
+  "runner": {
+    "type": "docker-compose",
+    "compose_file": "examples/gitea-reference/compose.yaml"
+  },
+  "versions": {
+    "from": ["1.26.0", "1.26.4"],
+    "to": "1.27.3"
+  },
+  "setup": {
+    "command": "sh examples/gitea-reference/scripts/setup.sh"
+  },
+  "upgrade": {
+    "command": "sh examples/gitea-reference/scripts/upgrade.sh"
+  },
+  "verify": {
+    "command": "sh examples/gitea-reference/scripts/verify.sh"
+  },
+  "policy": {
+    "require_all_paths": true
+  }
+}
