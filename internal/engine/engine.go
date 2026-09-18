@@ -69,7 +69,8 @@ func (e Engine) Run(ctx context.Context, plan Plan) RunResult {
 		}
 	}
 
-	cleanup := e.runLifecycle(ctx, now, PhaseCleanup, env, e.Runner.Cleanup)
+	cleanupCtx := context.WithoutCancel(ctx)
+	cleanup := e.runLifecycle(cleanupCtx, now, PhaseCleanup, env, e.Runner.Cleanup)
 	result.Phases = append(result.Phases, cleanup)
 	if cleanup.Status == StatusFailed && result.Status == StatusPassed {
 		result.Status = StatusFailed
