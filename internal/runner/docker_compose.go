@@ -35,7 +35,11 @@ func (r DockerCompose) environment(env map[string]string) map[string]string {
 	}
 	merged["COMPOSE_FILE"] = r.ComposeFile
 	if r.ProjectName != "" {
-		merged["COMPOSE_PROJECT_NAME"] = r.ProjectName
+		projectName := r.ProjectName
+		if runID := env["ULAB_RUN_ID"]; runID != "" {
+			projectName += "-" + runID
+		}
+		merged["COMPOSE_PROJECT_NAME"] = projectName
 	}
 	return merged
 }
