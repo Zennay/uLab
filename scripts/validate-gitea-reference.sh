@@ -15,12 +15,18 @@ docker compose version >/dev/null
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/ulab-gitea-proof.XXXXXX")
 BIN="$WORK/ulab"
-EVIDENCE="$WORK/evidence"
+SESSION=$(date -u +%Y%m%dT%H%M%SZ)-$$
+EVIDENCE="${ULAB_GITEA_EVIDENCE_ROOT:-.ulab/gitea-reference-runs/$SESSION}"
 
 cleanup() {
-  for PROJECT in     ulab-1-26-0-to-1-27-3     ulab-1-26-4-to-1-27-3
+  for PROJECT in \
+    ulab-1-26-0-to-1-27-3 \
+    ulab-1-26-4-to-1-27-3
   do
-    docker compose       -f examples/gitea-reference/compose.yaml       -p "$PROJECT"       down --volumes --remove-orphans >/dev/null 2>&1 || true
+    docker compose \
+      -f examples/gitea-reference/compose.yaml \
+      -p "$PROJECT" \
+      down --volumes --remove-orphans >/dev/null 2>&1 || true
   done
   rm -rf "$WORK"
 }
@@ -29,10 +35,16 @@ trap cleanup EXIT INT TERM
 COMMIT=$(git rev-parse --verify HEAD)
 
 echo "==> build revision-stamped uLab binary"
-go build -trimpath -buildvcs=false   -ldflags="-s -w -X main.version=m3-gitea-validation -X main.commit=$COMMIT"   -o "$BIN" ./cmd/ulab
+go build -trimpath -buildvcs=false \
+  -ldflags="-s -w -X main.version=m3-gitea-validation -X main.commit=$COMMIT" \
+  -o "$BIN" ./cmd/ulab
 
 echo "==> run real Gitea upgrade matrix"
-"$BIN" test   --jobs 1   --config examples/gitea-reference/ulab.json   --json-out "$WORK/pass.json"   --evidence-root "$EVIDENCE" > "$WORK/pass.out"
+"$BIN" test \
+  --jobs 1 \
+  --config examples/gitea-reference/ulab.json \
+  --json-out "$WORK/pass.json" \
+  --evidence-root "$EVIDENCE" > "$WORK/pass.out"
 
 grep -Eq '^1\.26\.0[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
 grep -Eq '^1\.26\.4[[:space:]]+1\.27\.3[[:space:]]+passed$' "$WORK/pass.out"
@@ -40,7 +52,11 @@ grep -Fq '"status": "passed"' "$WORK/pass.json"
 
 echo "==> run deliberate Gitea assertion failure"
 set +e
-"$BIN" test   --jobs 1   --config examples/gitea-reference/ulab-broken.json   --json-out "$WORK/fail.json"   --evidence-root "$EVIDENCE" > "$WORK/fail.out" 2> "$WORK/fail.err"
+"$BIN" test \
+  --jobs 1 \
+  --config examples/gitea-reference/ulab-broken.json \
+  --json-out "$WORK/fail.json" \
+  --evidence-root "$EVIDENCE" > "$WORK/fail.out" 2> "$WORK/fail.err"
 FAIL_RC=$?
 set -e
 
@@ -68,7 +84,9 @@ for BUNDLE in "$EVIDENCE"/*; do
 done
 
 echo "==> verify Compose cleanup"
-for PROJECT in   ulab-1-26-0-to-1-27-3   ulab-1-26-4-to-1-27-3
+for PROJECT in \
+  ulab-1-26-0-to-1-27-3 \
+  ulab-1-26-4-to-1-27-3
 do
   if docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" | grep -q .; then
     echo "leftover container for Compose project $PROJECT" >&2
@@ -85,4 +103,4 @@ do
 done
 
 echo "Gitea runtime proof passed"
-echo "evidence root: $EVIDENCE"
+echo "evidence preserved at: $EVIDENCE"
