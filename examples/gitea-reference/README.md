@@ -21,7 +21,7 @@ For each source path:
 
 1. start the real source Gitea container with a fresh isolated uLab Compose project;
 2. wait for `/api/healthz`;
-3. create a local admin user;
+3. create a local admin user as Gitea's container `git` user;
 4. create a repository and an issue through the Gitea REST API;
 5. replace the running container with the target image while keeping the same `/data` volume;
 6. allow Gitea's real startup migration path to run;
@@ -37,9 +37,19 @@ This is intentionally application-specific code. uLab only supplies orchestratio
 - `curl`
 - access to `docker.gitea.com`
 
-The integration binds Gitea to `127.0.0.1:3300`, so run it sequentially with `--jobs 1`.
+The integration binds Gitea to `127.0.0.1:3300`, so it runs sequentially with `--jobs 1`.
 
-## Run
+## One-command runtime proof
+
+On a Docker-capable host, run:
+
+```sh
+sh scripts/validate-gitea-reference.sh
+```
+
+That command builds the exact current uLab revision, runs both real source upgrades, verifies the resulting evidence, runs the deliberate failure variant and checks that no uLab-owned Compose containers, volumes or networks remain.
+
+For manual inspection, the passing matrix is:
 
 ```sh
 go run ./cmd/ulab test \
@@ -47,7 +57,7 @@ go run ./cmd/ulab test \
   --config examples/gitea-reference/ulab.json
 ```
 
-A deliberate failure variant first performs the real verification and then fails the project assertion:
+The deliberate failure variant first performs the real verification and then fails the project assertion:
 
 ```sh
 go run ./cmd/ulab test \
@@ -57,7 +67,7 @@ go run ./cmd/ulab test \
 
 ## Evidence status
 
-The integration contract and scripts are checked in the normal Go test suite. A full Docker-backed runtime result is still required before M3 can be called verified.
+The integration contract, runtime-proof harness and hook scripts are covered by local static validation. A successful run of `sh scripts/validate-gitea-reference.sh` on a real Docker host is still required before M3 can be called VERIFIED.
 
 ## Upstream references
 
