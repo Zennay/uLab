@@ -65,3 +65,24 @@ func TestSetupRunsGiteaAdminCLIAsContainerGitUser(t *testing.T) {
 		t.Fatal("setup must run the Gitea admin CLI as the container git user")
 	}
 }
+
+func TestRuntimeProofPreservesAuditMetadata(t *testing.T) {
+	data, err := os.ReadFile("../../scripts/validate-gitea-reference.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	for _, want := range []string{
+		"preserve_work_artifacts",
+		"proof-summary.json",
+		"docker image inspect",
+		"docker_server",
+		"durations_seconds",
+		"PROOF.txt",
+		"json.Unmarshal",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("runtime proof does not preserve audit contract %q", want)
+		}
+	}
+}
