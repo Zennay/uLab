@@ -16,7 +16,7 @@ Start from the exact commit you want to publish and make sure the working tree i
 
 ```sh
 git checkout <commit-or-tag>
-scripts/release.sh v0.1.0
+sh scripts/release.sh v0.1.0
 ```
 
 The script first runs `go test ./...`. If the tests fail, no release is produced.
@@ -35,7 +35,7 @@ It also writes:
 ## Verify a release
 
 ```sh
-scripts/verify-release.sh dist/SHA256SUMS
+sh scripts/verify-release.sh dist/SHA256SUMS
 ```
 
 The verifier checks every SHA-256 digest and rejects an incomplete platform matrix.
