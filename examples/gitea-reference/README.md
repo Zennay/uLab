@@ -61,10 +61,10 @@ The proof:
 - records Go, Docker, Compose and host metadata;
 - records wall-clock durations for the passing matrix, failure path and full proof.
 
-A successful run is preserved under `.ulab/gitea-reference-runs/<session>/`. Alongside the normal uLab bundle directories, the session contains:
+A successful run is preserved under `.ulab/gitea-reference-runs/<session>/`. Alongside the normal uLab bundle directories, the session contains the proof-level artifacts below. Partial stdout/stderr is also preserved when a runtime proof aborts after execution has started:
 
 - `proof-summary.json` — machine-readable M3 proof metadata;
-- `README.md` — human-readable proof summary;
+- `PROOF.txt` — human-readable proof summary;
 - `matrix-pass.json` and `matrix-pass.txt`;
 - `deliberate-failure.json`, stdout and stderr captures.
 
