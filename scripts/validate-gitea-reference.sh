@@ -40,17 +40,44 @@ preserve_work_artifacts() {
   [ ! -f "$WORK/fail.err" ] || cp "$WORK/fail.err" "$EVIDENCE/deliberate-failure.stderr.txt" || true
 }
 
-cleanup() {
-  preserve_work_artifacts
-  for PROJECT in \
+gitea_project_prefixes() {
+  printf '%s\n' \
     ulab-1-26-0-to-1-27-3 \
     ulab-1-26-4-to-1-27-3
-  do
-    docker compose \
-      -f examples/gitea-reference/compose.yaml \
-      -p "$PROJECT" \
-      down --volumes --remove-orphans >/dev/null 2>&1 || true
+}
+
+cleanup_gitea_projects() {
+  gitea_project_prefixes | while IFS= read -r PREFIX; do
+    docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null |
+      grep -E "^$PREFIX-" |
+      sort -u |
+      while IFS= read -r PROJECT; do
+        [ -n "$PROJECT" ] || continue
+        docker compose \
+          -f examples/gitea-reference/compose.yaml \
+          -p "$PROJECT" \
+          down --volumes --remove-orphans >/dev/null 2>&1 || true
+      done
+
+    docker volume ls -q 2>/dev/null |
+      grep -E "^$PREFIX-.*_gitea-data$" |
+      while IFS= read -r VOLUME; do
+        [ -n "$VOLUME" ] || continue
+        docker volume rm -f "$VOLUME" >/dev/null 2>&1 || true
+      done
+
+    docker network ls --format '{{.Name}}' 2>/dev/null |
+      grep -E "^$PREFIX-.*_default$" |
+      while IFS= read -r NETWORK; do
+        [ -n "$NETWORK" ] || continue
+        docker network rm "$NETWORK" >/dev/null 2>&1 || true
+      done
   done
+}
+
+cleanup() {
+  preserve_work_artifacts
+  cleanup_gitea_projects
   rm -rf "$WORK"
 }
 trap cleanup EXIT INT TERM
@@ -159,20 +186,17 @@ for BUNDLE in "$EVIDENCE"/*; do
 done
 
 echo "==> verify Compose cleanup"
-for PROJECT in \
-  ulab-1-26-0-to-1-27-3 \
-  ulab-1-26-4-to-1-27-3
-do
-  if docker ps -aq --filter "label=com.docker.compose.project=$PROJECT" | grep -q .; then
-    echo "leftover container for Compose project $PROJECT" >&2
+gitea_project_prefixes | while IFS= read -r PREFIX; do
+  if docker ps -a --format '{{.Label "com.docker.compose.project"}}' | grep -Eq "^$PREFIX-"; then
+    echo "leftover container for run-scoped Compose project prefix $PREFIX" >&2
     exit 1
   fi
-  if docker volume ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -q .; then
-    echo "leftover volume for Compose project $PROJECT" >&2
+  if docker volume ls -q | grep -Eq "^$PREFIX-.*_gitea-data$"; then
+    echo "leftover volume for run-scoped Compose project prefix $PREFIX" >&2
     exit 1
   fi
-  if docker network ls -q --filter "label=com.docker.compose.project=$PROJECT" | grep -q .; then
-    echo "leftover network for Compose project $PROJECT" >&2
+  if docker network ls --format '{{.Name}}' | grep -Eq "^$PREFIX-.*_default$"; then
+    echo "leftover network for run-scoped Compose project prefix $PREFIX" >&2
     exit 1
   fi
 done
