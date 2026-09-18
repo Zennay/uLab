@@ -66,8 +66,7 @@ func runInit(args []string) error {
 	if err != nil {
 		return err
 	}
-	data = append(data, '
-')
+	data = append(data, '\n')
 	if err := os.WriteFile(*path, data, 0o644); err != nil {
 		return err
 	}
@@ -97,11 +96,9 @@ func runTest(args []string) error {
 		return err
 	}
 
-	fmt.Printf("%s -> %s: %s
-", result.SourceVersion, result.TargetVersion, result.Status)
+	fmt.Printf("%s -> %s: %s\n", result.SourceVersion, result.TargetVersion, result.Status)
 	for _, phase := range result.Phases {
-		fmt.Printf("  %-8s %s
-", phase.Phase, phase.Status)
+		fmt.Printf("  %-8s %s\n", phase.Phase, phase.Status)
 	}
 	if result.Status == engine.StatusFailed {
 		return errors.New("upgrade path failed")
