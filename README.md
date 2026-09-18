@@ -31,6 +31,8 @@ Project guides:
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
 - [Releasing](docs/RELEASING.md)
+- [First release checklist](docs/FIRST_RELEASE_CHECKLIST.md)
+- [Changelog](CHANGELOG.md)
 
 ## Try the included fixture
 
@@ -117,6 +119,8 @@ sh scripts/verify-release.sh dist/SHA256SUMS
 ```
 
 The release flow runs the Go test suite first, cross-compiles six platform binaries, embeds the release version and source commit, and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
+
+A separate public-release preflight intentionally blocks tagging while required release decisions such as the project license remain unresolved.
 
 ## What uLab does not decide
 

@@ -20,6 +20,18 @@ sh scripts/validate-local.sh
 
 This validates unit tests, static analysis, bounded matrix execution, a passing three-source release candidate, an intentionally failing path, the non-zero compatibility gate and persistent evidence output without using GitHub-hosted runners.
 
+## First public release preflight
+
+Before creating a public tag, complete [the first release checklist](FIRST_RELEASE_CHECKLIST.md) and run:
+
+```sh
+sh scripts/release-preflight.sh v0.1.0
+```
+
+The preflight requires a clean `main`, no existing tag with the same version, the required OSS documentation, a committed `LICENSE`, a versioned changelog section and a resolved name/license status in the README. It then runs the deterministic local validation path.
+
+This means the current repository is expected to fail public-release preflight until the human-owned name and license choices are resolved.
+
 ## Create a release candidate
 
 Start from the exact commit you want to publish and make sure the working tree is clean.
