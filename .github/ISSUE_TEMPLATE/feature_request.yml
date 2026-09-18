@@ -1,0 +1,39 @@
+name: Feature request
+description: Propose a change tied to a concrete upgrade-validation problem.
+title: "[feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete release or upgrade-validation problem are you trying to solve?
+    validations:
+      required: true
+  - type: textarea
+    id: current_workaround
+    attributes:
+      label: Current workaround
+      description: How do you solve this today without the proposed feature?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed capability
+      description: Describe the smallest capability that would solve the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: project_context
+    attributes:
+      label: Project context
+      description: Runner, stack, state model, versions, and any relevant project-specific constraints.
+    validations:
+      required: false
+  - type: checkboxes
+    id: boundary
+    attributes:
+      label: Product boundary
+      options:
+        - label: This request keeps project-specific upgrade correctness in project-owned hooks/assertions rather than asking uLab to infer it.
+          required: true
