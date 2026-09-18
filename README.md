@@ -72,8 +72,8 @@ For Docker Compose runs, uLab also isolates Compose project names and performs c
 uLab can be packaged without GitHub-hosted CI or paid runners:
 
 ```sh
-scripts/release.sh v0.1.0
-scripts/verify-release.sh dist/SHA256SUMS
+sh scripts/release.sh v0.1.0
+sh scripts/verify-release.sh dist/SHA256SUMS
 ```
 
 The release flow runs the Go test suite first, cross-compiles six platform binaries and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
