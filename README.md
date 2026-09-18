@@ -98,7 +98,7 @@ ULAB_SOURCE_VERSION
 ULAB_TARGET_VERSION
 ```
 
-For Docker Compose runs, uLab also isolates Compose project names and performs cleanup after each path.
+For Docker Compose runs, uLab scopes the Compose project name to the source/target path **and the unique run id**, then performs cleanup after each path. This prevents identical upgrade paths in separate or concurrent runs from sharing Compose resources.
 
 ## Validate locally
 
