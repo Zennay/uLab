@@ -30,10 +30,21 @@ body:
       description: Runner, stack, state model, versions, and any relevant project-specific constraints.
     validations:
       required: false
-  - type: checkboxes
+  - type: dropdown
     id: boundary
     attributes:
-      label: Product boundary
+      label: Does this keep upgrade correctness in project-owned hooks or assertions?
+      description: "Current uLab boundary: uLab owns orchestration; projects own upgrade semantics. No answer is disqualifying."
       options:
-        - label: This request keeps project-specific upgrade correctness in project-owned hooks/assertions rather than asking uLab to infer it.
-          required: true
+        - "Yes"
+        - "No"
+        - "Unsure"
+    validations:
+      required: true
+  - type: textarea
+    id: boundary_reason
+    attributes:
+      label: Boundary context
+      description: If you selected No or Unsure, explain what you would want uLab to own instead.
+    validations:
+      required: false
