@@ -80,6 +80,8 @@ func TestRuntimeProofPreservesAuditMetadata(t *testing.T) {
 		"durations_seconds",
 		"PROOF.txt",
 		"json.Unmarshal",
+		"Gitea runtime proof requires a clean working tree",
+		"Gitea runtime proof must run from canonical main",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("runtime proof does not preserve audit contract %q", want)
