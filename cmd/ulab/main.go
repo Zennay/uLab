@@ -168,6 +168,9 @@ func runTestContext(ctx context.Context, args []string) error {
 
 	printMatrix(os.Stdout, result)
 	fmt.Println("evidence:", paths.Dir)
+	if ctx.Err() != nil {
+		return fmt.Errorf("test run canceled: %w", ctx.Err())
+	}
 	if cfg.Policy.RequireAllPaths && result.Status == engine.StatusFailed {
 		return errors.New("compatibility policy failed")
 	}

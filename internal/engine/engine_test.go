@@ -153,11 +153,11 @@ func TestCanceledRunStillCleansUpWithLiveContext(t *testing.T) {
 		VerifyCommand:  "verify",
 	})
 
-	if result.Status != StatusFailed {
-		t.Fatalf("status = %s, want failed", result.Status)
+	if result.Status != StatusCanceled {
+		t.Fatalf("status = %s, want canceled", result.Status)
 	}
-	if result.FailureKind != FailureHook {
-		t.Fatalf("failure kind = %s, want hook_failed", result.FailureKind)
+	if result.FailureKind != FailureCanceled {
+		t.Fatalf("failure kind = %s, want canceled", result.FailureKind)
 	}
 	if r.cleanupContextErr != nil {
 		t.Fatalf("cleanup inherited canceled context: %v", r.cleanupContextErr)

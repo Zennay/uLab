@@ -152,3 +152,55 @@ func TestMatrixBoundsConcurrency(t *testing.T) {
 		t.Fatalf("max concurrency = %d, want 2", max)
 	}
 }
+
+type cancelingRunner struct {
+	cancel context.CancelFunc
+}
+
+func (r cancelingRunner) Prepare(context.Context, map[string]string) (executor.Result, error) {
+	return executor.Result{}, nil
+}
+func (r cancelingRunner) Run(ctx context.Context, command string, _ map[string]string) (executor.Result, error) {
+	if command == "upgrade" {
+		r.cancel()
+		<-ctx.Done()
+		return executor.Result{}, ctx.Err()
+	}
+	return executor.Result{}, nil
+}
+func (r cancelingRunner) Cleanup(context.Context, map[string]string) (executor.Result, error) {
+	return executor.Result{}, nil
+}
+
+func TestMatrixMarksInterruptedAndUnstartedPathsCanceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	factoryCalls := 0
+	plans := []engine.Plan{
+		{SourceVersion: "v1", TargetVersion: "v2", UpgradeCommand: "upgrade", VerifyCommand: "verify"},
+		{SourceVersion: "v1.1", TargetVersion: "v2", UpgradeCommand: "upgrade", VerifyCommand: "verify"},
+		{SourceVersion: "v1.2", TargetVersion: "v2", UpgradeCommand: "upgrade", VerifyCommand: "verify"},
+	}
+	m := Matrix{
+		Jobs: 1,
+		RunnerFactory: func(engine.Plan) (runner.Runner, error) {
+			factoryCalls++
+			return cancelingRunner{cancel: cancel}, nil
+		},
+	}
+
+	result := m.Run(ctx, plans)
+	if result.Status != engine.StatusFailed {
+		t.Fatalf("matrix status = %s, want failed release gate", result.Status)
+	}
+	if factoryCalls != 1 {
+		t.Fatalf("runner factory calls = %d, want 1", factoryCalls)
+	}
+	for i, run := range result.Runs {
+		if run.Status != engine.StatusCanceled {
+			t.Fatalf("run %d status = %s, want canceled", i, run.Status)
+		}
+		if run.FailureKind != engine.FailureCanceled {
+			t.Fatalf("run %d failure kind = %s, want canceled", i, run.FailureKind)
+		}
+	}
+}

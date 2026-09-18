@@ -44,8 +44,13 @@ func (e Engine) Run(ctx context.Context, plan Plan) RunResult {
 	prepare := e.runLifecycle(ctx, now, PhasePrepare, env, e.Runner.Prepare)
 	result.Phases = append(result.Phases, prepare)
 	if prepare.Status == StatusFailed {
-		result.Status = StatusFailed
-		result.FailureKind = FailureRunner
+		if ctx.Err() != nil {
+			result.Status = StatusCanceled
+			result.FailureKind = FailureCanceled
+		} else {
+			result.Status = StatusFailed
+			result.FailureKind = FailureRunner
+		}
 	} else {
 		steps := []struct {
 			phase   Phase
@@ -59,11 +64,21 @@ func (e Engine) Run(ctx context.Context, plan Plan) RunResult {
 			if step.command == "" {
 				continue
 			}
+			if ctx.Err() != nil {
+				result.Status = StatusCanceled
+				result.FailureKind = FailureCanceled
+				break
+			}
 			phase := e.runCommand(ctx, now, step.phase, step.command, env)
 			result.Phases = append(result.Phases, phase)
 			if phase.Status == StatusFailed {
-				result.Status = StatusFailed
-				result.FailureKind = FailureHook
+				if ctx.Err() != nil {
+					result.Status = StatusCanceled
+					result.FailureKind = FailureCanceled
+				} else {
+					result.Status = StatusFailed
+					result.FailureKind = FailureHook
+				}
 				break
 			}
 		}
