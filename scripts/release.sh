@@ -3,7 +3,7 @@ set -eu
 
 VERSION="${1:-}"
 if [ -z "$VERSION" ]; then
-  echo "usage: scripts/release.sh <version>" >&2
+  echo "usage: sh scripts/release.sh <version>" >&2
   exit 2
 fi
 
@@ -49,7 +49,6 @@ windows amd64
 windows arm64
 "
 
-ARTIFACTS=""
 echo "$TARGETS" | while read -r GOOS_VALUE GOARCH_VALUE; do
   [ -n "$GOOS_VALUE" ] || continue
 
@@ -105,6 +104,6 @@ do
 done
 
 echo "==> verifying checksums"
-scripts/verify-release.sh dist/SHA256SUMS
+sh scripts/verify-release.sh dist/SHA256SUMS
 
 echo "==> release artifacts ready in dist/"
