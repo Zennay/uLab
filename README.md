@@ -71,7 +71,7 @@ ulab version
 
 ## Configuration
 
-`versions.from` accepts a single version or a list:
+`versions.from` accepts a single version or a list. Source versions must be unique so each matrix row represents one distinct compatibility path:
 
 ```json
 {

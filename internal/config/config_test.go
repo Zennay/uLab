@@ -69,3 +69,14 @@ func TestPlansPreserveSourceOrder(t *testing.T) {
 		t.Fatalf("sources = %#v, want %#v", got, want)
 	}
 }
+
+func TestValidateRejectsDuplicateSourceVersions(t *testing.T) {
+	cfg := Config{
+		Versions: Versions{From: VersionList{"v1", "v1"}, To: "v2"},
+		Upgrade:  Hook{Command: "upgrade"},
+		Verify:   Hook{Command: "verify"},
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected duplicate source version to be rejected")
+	}
+}
