@@ -28,7 +28,9 @@ Before creating a public tag, complete [the first release checklist](FIRST_RELEA
 sh scripts/release-preflight.sh v0.1.0
 ```
 
-The preflight requires a clean `main`, no existing tag with the same version, the required OSS documentation, a committed `LICENSE`, a versioned changelog section and a resolved name/license status in the README. It then runs the deterministic local validation path.
+The preflight requires a clean `main`, no existing tag with the same version, the required OSS documentation, the baseline GitHub issue-template set (`config.yml`, bug report, feature request and external integration feedback), a committed `LICENSE`, a versioned changelog section and a resolved name/license status in the README. It then runs the deterministic local validation path.
+
+The milestone-specific M5 usability-result form is not part of the permanent release gate; it exists only to capture evidence for the current usability milestone.
 
 This means the current repository is expected to fail public-release preflight until the human-owned name and license choices are resolved.
 
