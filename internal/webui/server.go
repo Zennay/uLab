@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Zennay/ulab/internal/config"
 	"github.com/Zennay/ulab/internal/engine"
 	"github.com/Zennay/ulab/internal/evidence"
 	"github.com/Zennay/ulab/internal/matrix"
@@ -19,6 +20,7 @@ import (
 
 type Bundle struct {
 	Dir      string
+	Config   config.Config
 	Metadata evidence.BundleMetadata
 	Result   matrix.Result
 }
@@ -63,6 +65,14 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		data.Selected = &bundles[selected]
+		data.Readiness = releaseReadiness(*data.Selected)
+
+		selectedRun, err := selectRun(data.Selected.Result.Runs, r.URL.Query().Get("source"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		data.SelectedRun = selectedRun
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -98,6 +108,14 @@ func LoadBundles(root string) ([]Bundle, error) {
 			return nil, fmt.Errorf("%s metadata: invocation id is %q", entry.Name(), metadata.InvocationID)
 		}
 
+		var cfg config.Config
+		if err := readJSON(filepath.Join(dir, "config.json"), &cfg); err != nil {
+			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
+		}
+		if err := cfg.Validate(); err != nil {
+			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
+		}
+
 		var result matrix.Result
 		if err := readJSON(filepath.Join(dir, "result.json"), &result); err != nil {
 			return nil, fmt.Errorf("%s result: %w", entry.Name(), err)
@@ -105,6 +123,7 @@ func LoadBundles(root string) ([]Bundle, error) {
 
 		bundles = append(bundles, Bundle{
 			Dir:      dir,
+			Config:   cfg,
 			Metadata: metadata,
 			Result:   result,
 		})
@@ -130,10 +149,85 @@ func readJSON(path string, target any) error {
 	return nil
 }
 
+type readiness struct {
+	Label  string
+	Class  string
+	Detail string
+	Passed int
+	Total  int
+}
+
+func releaseReadiness(bundle Bundle) readiness {
+	total := len(bundle.Result.Runs)
+	passed := 0
+	for _, run := range bundle.Result.Runs {
+		if run.Status == engine.StatusPassed {
+			passed++
+		}
+	}
+
+	switch {
+	case total == 0:
+		return readiness{
+			Label:  "NO DATA",
+			Class:  "unknown",
+			Detail: "No upgrade paths were recorded in this evidence bundle.",
+			Passed: passed,
+			Total:  total,
+		}
+	case passed == total && bundle.Result.Status == engine.StatusPassed:
+		return readiness{
+			Label:  "READY",
+			Class:  "passed",
+			Detail: fmt.Sprintf("%d of %d tested upgrade paths passed.", passed, total),
+			Passed: passed,
+			Total:  total,
+		}
+	case bundle.Config.Policy.RequireAllPaths:
+		return readiness{
+			Label:  "BLOCKED",
+			Class:  "failed",
+			Detail: fmt.Sprintf("%d of %d tested upgrade paths passed; require_all_paths blocks the release gate.", passed, total),
+			Passed: passed,
+			Total:  total,
+		}
+	default:
+		return readiness{
+			Label:  "ATTENTION",
+			Class:  "attention",
+			Detail: fmt.Sprintf("%d of %d tested upgrade paths passed; policy does not require every path, so review non-passing evidence before release.", passed, total),
+			Passed: passed,
+			Total:  total,
+		}
+	}
+}
+
+func selectRun(runs []engine.RunResult, source string) (*engine.RunResult, error) {
+	if len(runs) == 0 {
+		return nil, nil
+	}
+	if source != "" {
+		for i := range runs {
+			if runs[i].SourceVersion == source {
+				return &runs[i], nil
+			}
+		}
+		return nil, fmt.Errorf("unknown source version %q", source)
+	}
+	for i := range runs {
+		if runs[i].Status != engine.StatusPassed {
+			return &runs[i], nil
+		}
+	}
+	return &runs[0], nil
+}
+
 type pageData struct {
 	EvidenceRoot string
 	Bundles      []Bundle
 	Selected     *Bundle
+	SelectedRun  *engine.RunResult
+	Readiness    readiness
 }
 
 func failedPhase(run engine.RunResult) string {
@@ -146,6 +240,32 @@ func failedPhase(run engine.RunResult) string {
 		return "canceled"
 	}
 	return ""
+}
+
+func failureKind(run engine.RunResult) string {
+	switch run.FailureKind {
+	case engine.FailureRunner:
+		return "runner / infrastructure"
+	case engine.FailureHook:
+		return "project hook"
+	case engine.FailureCanceled:
+		return "canceled"
+	default:
+		return "—"
+	}
+}
+
+func failureNote(run engine.RunResult) string {
+	switch run.FailureKind {
+	case engine.FailureRunner:
+		return "The runner failed before uLab could establish a passing compatibility result."
+	case engine.FailureHook:
+		return "A project-owned hook failed. uLab records the failing phase but does not infer whether the root cause is application behavior or the test definition."
+	case engine.FailureCanceled:
+		return "The run was canceled; uLab does not present cancellation as an application incompatibility."
+	default:
+		return ""
+	}
 }
 
 func formatDuration(d time.Duration) string {
@@ -162,10 +282,31 @@ func reproduceCommand(args []string) string {
 	return strings.Join(args, " ")
 }
 
+func statusGlyph(status engine.Status) string {
+	switch status {
+	case engine.StatusPassed:
+		return "✓"
+	case engine.StatusFailed:
+		return "✕"
+	case engine.StatusCanceled:
+		return "∥"
+	default:
+		return "?"
+	}
+}
+
+func nonPassing(status engine.Status) bool {
+	return status != engine.StatusPassed
+}
+
 var pageTemplate = template.Must(template.New("index").Funcs(template.FuncMap{
-	"duration":  formatDuration,
-	"failed":    failedPhase,
-	"reproduce": reproduceCommand,
+	"duration":    formatDuration,
+	"failed":      failedPhase,
+	"failure":     failureKind,
+	"failureNote": failureNote,
+	"glyph":       statusGlyph,
+	"nonpassing":  nonPassing,
+	"reproduce":   reproduceCommand,
 }).Parse(`<!doctype html>
 <html lang="en">
 <head>
@@ -175,29 +316,44 @@ var pageTemplate = template.Must(template.New("index").Funcs(template.FuncMap{
 <style>
 :root { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #16181d; background: #f5f6f8; }
 body { margin: 0; }
-main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 56px; }
+main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 56px; }
 h1 { margin: 0 0 6px; font-size: 28px; }
+h2 { margin: 0 0 14px; font-size: 20px; }
+h3 { margin: 0; font-size: 15px; }
 p { line-height: 1.5; }
+a { color: inherit; }
 .muted { color: #646b78; }
 .toolbar, .card { background: white; border: 1px solid #dfe3e8; border-radius: 12px; }
 .toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 16px; margin: 24px 0 16px; }
 select { max-width: 100%; padding: 8px 10px; border: 1px solid #cbd1d8; border-radius: 8px; background: white; }
 .card { padding: 20px; margin-top: 16px; }
-.summary { display: flex; gap: 14px; flex-wrap: wrap; align-items: baseline; }
-.status { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 999px; font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: .03em; }
+.readiness { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.readiness-copy { flex: 1 1 420px; }
+.status { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
 .status-passed { background: #e8f7ed; color: #166534; }
 .status-failed { background: #fdecec; color: #991b1b; }
-.status-canceled { background: #fff3d6; color: #92400e; }
-.meta { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 12px; margin-top: 16px; }
+.status-canceled, .status-attention { background: #fff3d6; color: #92400e; }
+.status-unknown { background: #eef0f3; color: #4b5563; }
+.readiness-status { font-size: 15px; padding: 7px 12px; }
+.meta { display: grid; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); gap: 12px; margin-top: 18px; }
 .meta div { min-width: 0; }
 .meta strong { display: block; font-size: 12px; color: #646b78; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .04em; }
 code { overflow-wrap: anywhere; }
 table { width: 100%; border-collapse: collapse; margin-top: 12px; }
 th, td { text-align: left; padding: 11px 10px; border-bottom: 1px solid #e7e9ed; vertical-align: top; }
 th { color: #646b78; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
-.phase-list { margin: 0; padding-left: 18px; }
-.phase-list li { margin: 4px 0; }
-.error { color: #991b1b; white-space: pre-wrap; }
+.inspect { font-weight: 650; white-space: nowrap; }
+.timeline { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 10px; margin: 14px 0 18px; padding: 0; list-style: none; }
+.phase { border: 1px solid #dfe3e8; border-radius: 10px; padding: 12px; min-width: 0; }
+.phase-passed { border-color: #bddfc7; }
+.phase-failed { border-color: #efb7b7; }
+.phase-canceled { border-color: #edd79e; }
+.phase .status { margin-top: 9px; }
+.evidence details { border-top: 1px solid #e7e9ed; padding: 12px 0; }
+.evidence summary { cursor: pointer; font-weight: 650; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; border: 1px solid #e4e7eb; border-radius: 8px; padding: 10px; max-height: 320px; overflow: auto; }
+.error { color: #991b1b; }
+.notice { border-left: 3px solid #cbd1d8; padding-left: 12px; }
 .empty { padding: 28px; text-align: center; }
 @media (max-width: 700px) { table { display: block; overflow-x: auto; } .toolbar { align-items: stretch; flex-direction: column; } }
 </style>
@@ -221,48 +377,79 @@ th { color: #646b78; font-size: 12px; text-transform: uppercase; letter-spacing:
 	</div>
 
 	<section class="card">
-		<div class="summary">
-			<span class="status status-{{.Selected.Result.Status}}">{{.Selected.Result.Status}}</span>
-			<h2>{{len .Selected.Result.Runs}} upgrade path{{if ne (len .Selected.Result.Runs) 1}}s{{end}} → {{.Selected.Result.TargetVersion}}</h2>
+		<div class="readiness">
+			<span class="status status-{{.Readiness.Class}} readiness-status">{{.Readiness.Label}}</span>
+			<div class="readiness-copy">
+				<h2>Release readiness · {{.Selected.Result.TargetVersion}}</h2>
+				<p>{{.Readiness.Detail}}</p>
+			</div>
 		</div>
 		<div class="meta">
+			<div><strong>Coverage</strong>{{.Readiness.Passed}} / {{.Readiness.Total}} tested paths passed</div>
+			<div><strong>Gate policy</strong>{{if .Selected.Config.Policy.RequireAllPaths}}all paths required{{else}}all paths not required{{end}}</div>
 			<div><strong>Created</strong>{{.Selected.Metadata.CreatedAt.Format "2006-01-02 15:04:05 UTC"}}</div>
 			<div><strong>Tool revision</strong><code>{{.Selected.Metadata.ToolVersion}} · {{.Selected.Metadata.ToolCommit}}</code></div>
-			<div><strong>Config SHA-256</strong><code>{{.Selected.Metadata.ConfigSHA256}}</code></div>
-			<div><strong>Jobs</strong>{{.Selected.Metadata.Jobs}}</div>
 		</div>
 	</section>
 
 	<section class="card">
 		<h2>Compatibility matrix</h2>
 		<table>
-			<thead><tr><th>From</th><th>Target</th><th>Result</th><th>Failure phase</th><th>Duration</th><th>Phase evidence</th></tr></thead>
+			<thead><tr><th>From</th><th>Target</th><th>Result</th><th>Failure type</th><th>Failure phase</th><th>Duration</th><th></th></tr></thead>
 			<tbody>
 			{{range .Selected.Result.Runs}}
 			<tr>
 				<td><code>{{.SourceVersion}}</code></td>
 				<td><code>{{.TargetVersion}}</code></td>
-				<td><span class="status status-{{.Status}}">{{.Status}}</span></td>
+				<td><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span></td>
+				<td>{{failure .}}</td>
 				<td>{{with failed .}}{{.}}{{else}}—{{end}}</td>
 				<td>{{duration .Duration}}</td>
-				<td>
-					<details>
-						<summary>{{len .Phases}} phases</summary>
-						<ol class="phase-list">
-						{{range .Phases}}
-							<li><strong>{{.Phase}}</strong> — {{.Status}} · {{duration .Duration}}{{with .Error}}<div class="error">{{.}}</div>{{end}}</li>
-						{{end}}
-						</ol>
-					</details>
-				</td>
+				<td><a class="inspect" href="?run={{urlquery $.Selected.Metadata.InvocationID}}&source={{urlquery .SourceVersion}}">Inspect</a></td>
 			</tr>
 			{{end}}
 			</tbody>
 		</table>
 	</section>
 
+	{{with .SelectedRun}}
 	<section class="card">
-		<h2>Reproduce</h2>
+		<h2>Run timeline · <code>{{.SourceVersion}}</code> → <code>{{.TargetVersion}}</code></h2>
+		<p><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span> &nbsp; Failure type: <strong>{{failure .}}</strong>{{with failed .}} · phase <strong>{{.}}</strong>{{end}}</p>
+		{{with failureNote .}}<p class="muted notice">{{.}}</p>{{end}}
+		<ol class="timeline">
+			{{range .Phases}}
+			<li class="phase phase-{{.Status}}">
+				<h3>{{.Phase}}</h3>
+				<span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span>
+				<p class="muted">{{duration .Duration}}</p>
+			</li>
+			{{end}}
+		</ol>
+
+		<div class="evidence">
+			<h2>Phase evidence</h2>
+			{{range .Phases}}
+			<details {{if nonpassing .Status}}open{{end}}>
+				<summary>{{.Phase}} · {{.Status}} · {{duration .Duration}}</summary>
+				{{with .Command}}<p><strong>Command</strong><br><code>{{.}}</code></p>{{end}}
+				{{with .Output}}<p><strong>Output</strong></p><pre>{{.}}</pre>{{end}}
+				{{with .Error}}<p><strong>Error</strong></p><pre class="error">{{.}}</pre>{{end}}
+				{{if and (not .Command) (not .Output) (not .Error)}}<p class="muted">No command output or error text was recorded for this phase.</p>{{end}}
+			</details>
+			{{end}}
+		</div>
+	</section>
+	{{end}}
+
+	<section class="card">
+		<h2>Reproduce and provenance</h2>
+		<div class="meta">
+			<div><strong>Config SHA-256</strong><code>{{.Selected.Metadata.ConfigSHA256}}</code></div>
+			<div><strong>Jobs</strong>{{.Selected.Metadata.Jobs}}</div>
+			<div><strong>Runner</strong>{{if .Selected.Config.Runner.Type}}{{.Selected.Config.Runner.Type}}{{else}}process{{end}}</div>
+			<div><strong>Evidence bundle</strong><code>{{.Selected.Metadata.InvocationID}}</code></div>
+		</div>
 		<p class="muted">Command captured with the evidence bundle:</p>
 		<code>{{reproduce .Selected.Metadata.ReproduceCommand}}</code>
 	</section>
