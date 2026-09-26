@@ -51,9 +51,22 @@ func TestProcessCancellationStopsDescendantProcess(t *testing.T) {
 		t.Fatal("canceled process did not return")
 	}
 
-	if processIsRunning(childPID) {
+	if !waitForProcessStop(childPID, 500*time.Millisecond) {
 		_ = syscall.Kill(childPID, syscall.SIGKILL)
 		t.Fatalf("descendant process %d survived cancellation", childPID)
+	}
+}
+
+func waitForProcessStop(pid int, timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	for {
+		if !processIsRunning(pid) {
+			return true
+		}
+		if time.Now().After(deadline) {
+			return false
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 
