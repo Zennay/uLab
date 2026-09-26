@@ -1,0 +1,22 @@
+{
+  "runner": {
+    "type": "docker-compose",
+    "compose_file": "examples/postgresql-reference/compose.yaml"
+  },
+  "versions": {
+    "from": ["17.11"],
+    "to": "18.6"
+  },
+  "setup": {
+    "command": "sh examples/postgresql-reference/scripts/setup.sh"
+  },
+  "upgrade": {
+    "command": "sh examples/postgresql-reference/scripts/upgrade.sh"
+  },
+  "verify": {
+    "command": "sh examples/postgresql-reference/scripts/verify-broken.sh"
+  },
+  "policy": {
+    "require_all_paths": true
+  }
+}
