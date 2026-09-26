@@ -1,0 +1,120 @@
+name: M5 usability session result
+description: Record observed evidence from one real browser-only M5 diagnosis session.
+title: "[m5 usability] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form only after a real maintainer, contributor, or release engineer has attempted the five browser tasks in `docs/M5_USABILITY_VALIDATION.md`.
+
+        Negative, confusing, or failed sessions are valid evidence. Do not reconstruct answers after the fact, fill this from an AI evaluation, or turn facilitator impressions into participant claims.
+  - type: input
+    id: role
+    attributes:
+      label: Participant role
+      description: Their real relationship to software maintenance or releases.
+      placeholder: "maintainer / contributor / release engineer"
+    validations:
+      required: true
+  - type: textarea
+    id: background
+    attributes:
+      label: Relevant background
+      description: Briefly record relevant CI, migration, upgrade, or release-gate experience and whether they had seen uLab before.
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Exact uLab revision tested
+      description: Commit printed by the session preparation script.
+      placeholder: "40-character commit SHA"
+    validations:
+      required: true
+  - type: textarea
+    id: task1
+    attributes:
+      label: "Task 1 — release verdict"
+      description: Record observed outcome, time, hints, navigation, participant wording, and confusion.
+      placeholder: |
+        outcome: correct / incorrect / gave up
+        time:
+        hints:
+        navigation:
+        participant wording:
+        confusion:
+    validations:
+      required: true
+  - type: textarea
+    id: task2
+    attributes:
+      label: "Task 2 — broken upgrade path"
+      description: Record observed outcome, time, hints, navigation, participant wording, and confusion.
+      placeholder: |
+        outcome: correct / incorrect / gave up
+        time:
+        hints:
+        navigation:
+        participant wording:
+        confusion:
+    validations:
+      required: true
+  - type: textarea
+    id: task3
+    attributes:
+      label: "Task 3 — failure kind and phase"
+      description: Record observed outcome, time, hints, navigation, participant wording, and confusion.
+      placeholder: |
+        outcome: correct / incorrect / gave up
+        time:
+        hints:
+        navigation:
+        participant wording:
+        confusion:
+    validations:
+      required: true
+  - type: textarea
+    id: task4
+    attributes:
+      label: "Task 4 — evidence and reproduction"
+      description: Record observed outcome, time, hints, navigation, participant wording, and confusion.
+      placeholder: |
+        outcome: correct / incorrect / gave up
+        time:
+        hints:
+        navigation:
+        participant wording:
+        confusion:
+    validations:
+      required: true
+  - type: textarea
+    id: task5
+    attributes:
+      label: "Task 5 — scope of proof"
+      description: Record observed outcome, time, hints, participant wording, and confusion.
+      placeholder: |
+        outcome: correct / incorrect / gave up
+        time:
+        hints:
+        participant wording:
+        confusion:
+    validations:
+      required: true
+  - type: textarea
+    id: debrief
+    attributes:
+      label: Debrief
+      description: Record what was hardest to find, ambiguous labels/statuses, missing information, and whether the participant trusted the screen enough to choose what to investigate next.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Evidence confirmation
+      options:
+        - label: This record is based on one real qualifying participant session, not a hypothetical, self-review, or AI evaluation.
+          required: true
+        - label: Hints, wrong answers, confusion, and negative feedback have not been removed to make the session look better.
+          required: true
+        - label: Any participant-identifying or sensitive information shared here is posted with appropriate permission.
+          required: true

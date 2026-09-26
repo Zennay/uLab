@@ -94,6 +94,12 @@ Also retain:
 
 Do not convert hesitation, line count, or facilitator impressions into a "time saved" claim.
 
+## Recording the result
+
+After the session, use the repository's **M5 usability session result** issue form. Copy observations while they are still fresh and keep the record literal: include wrong answers, hints, confusion, and negative feedback.
+
+The issue form is for M5 visual-usability evidence only. Do not use it to claim adoption, onboarding speed, orchestration value, or toil reduction. Those require the separate external-integration protocol.
+
 ## Facilitator answer key
 
 The prepared fixture intentionally contains one non-passing path.
