@@ -30,6 +30,7 @@ Project guides:
 
 - [Installation](docs/INSTALL.md)
 - [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security](SECURITY.md)
 - [Releasing](docs/RELEASING.md)
 - [First release checklist](docs/FIRST_RELEASE_CHECKLIST.md)
