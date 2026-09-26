@@ -17,6 +17,7 @@ The current prototype supports:
 - bounded concurrent paths with `--jobs`;
 - JSON evidence and a non-zero compatibility gate;
 - persistent evidence bundles with config hashes and reproduction metadata;
+- a read-only local compatibility view over persisted evidence;
 - a stateful Docker fixture with both passing and destructive upgrade cases.
 
 ## Project status
@@ -62,6 +63,16 @@ Each invocation of `ulab test` publishes a bundle under `.ulab/runs/<invocation-
 - `metadata.json` with a SHA-256 config hash, working directory, source/target matrix, concurrency, tool build identity and a reproduction command.
 
 The normal `--json-out` file remains available for integrations that only need the machine-readable release gate. The persistent bundle is published first, so a failure writing the separate `--json-out` path does not discard the run evidence. Use `--evidence-root` to place persistent bundles elsewhere. Interrupted paths are recorded as `canceled` rather than `failed`, so operator cancellation is not presented as an upgrade incompatibility; the overall release gate still remains non-passing.
+
+### View evidence locally
+
+The first visual slice reads the same persisted bundles; it does not create a second result store.
+
+```sh
+ulab view --evidence-root .ulab/runs
+```
+
+By default the server listens only on `127.0.0.1:8080`. Open `http://127.0.0.1:8080/` to inspect the latest run, switch between bundles, see the FROM → TARGET compatibility matrix, identify the first failed phase and recover the captured reproduction command. Use `--addr` only when you intentionally want a different listen address.
 
 Release builds expose their embedded identity with:
 
