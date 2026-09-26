@@ -18,7 +18,7 @@ These must be complete before tagging:
 - [ ] working tree is clean;
 - [ ] `sh scripts/validate-local.sh` passes;
 - [ ] `CHANGELOG.md` contains a section for the intended version;
-- [ ] installation, security, contribution and release docs match current behavior;
+- [ ] installation, security, contribution, conduct and release docs match current behavior;
 - [ ] no GitHub-hosted Actions/minutes are required.
 
 The automated subset is checked with:
