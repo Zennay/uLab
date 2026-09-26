@@ -2,6 +2,8 @@
 
 uLab is still validating its core release-compatibility model. Contributions are welcome when they strengthen that model without turning project-specific upgrade semantics into uLab-owned logic.
 
+Participation is subject to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Development setup
 
 Requirements:
