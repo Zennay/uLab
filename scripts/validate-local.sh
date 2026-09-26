@@ -18,9 +18,9 @@ EVIDENCE="$WORK/evidence"
 export ULAB_VALIDATION_STATE_DIR="$WORK/state"
 
 echo "==> shell syntax"
-for script in scripts/*.sh examples/gitea-reference/scripts/*.sh; do
+for script in scripts/*.sh examples/gitea-reference/scripts/*.sh examples/postgresql-reference/scripts/*.sh; do
   sh -n "$script"
-  if grep -Eq "trap .*EXIT.*(INT|TERM)|trap .*(INT|TERM).*EXIT" "$script"; then
+  if grep -E '^[[:space:]]*trap ' "$script" | grep -Eq 'EXIT.*(INT|TERM)|(INT|TERM).*EXIT'; then
     echo "signal traps must exit separately from EXIT cleanup: $script" >&2
     exit 1
   fi
