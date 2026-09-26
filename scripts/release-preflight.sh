@@ -33,7 +33,7 @@ if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null 2>&1; then
   exit 1
 fi
 
-for FILE in README.md LICENSE SECURITY.md CONTRIBUTING.md CHANGELOG.md docs/INSTALL.md docs/RELEASING.md; do
+for FILE in README.md LICENSE SECURITY.md CONTRIBUTING.md CODE_OF_CONDUCT.md CHANGELOG.md docs/INSTALL.md docs/RELEASING.md; do
   if [ ! -f "$FILE" ]; then
     echo "release gate missing required file: $FILE" >&2
     exit 1
