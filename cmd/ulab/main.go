@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,6 +24,7 @@ import (
 	"github.com/Zennay/ulab/internal/executor"
 	"github.com/Zennay/ulab/internal/matrix"
 	"github.com/Zennay/ulab/internal/runner"
+	"github.com/Zennay/ulab/internal/webui"
 )
 
 var (
@@ -42,6 +44,8 @@ func main() {
 		err = runInit(os.Args[2:])
 	case "test":
 		err = runTest(os.Args[2:])
+	case "view":
+		err = runView(os.Args[2:])
 	case "version":
 		fmt.Printf("ulab %s (%s)\n", version, commit)
 		return
@@ -57,7 +61,24 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: ulab <init|test|version>")
+	fmt.Fprintln(os.Stderr, "usage: ulab <init|test|view|version>")
+}
+
+func runView(args []string) error {
+	fs := flag.NewFlagSet("view", flag.ContinueOnError)
+	evidenceRoot := fs.String("evidence-root", filepath.Join(".ulab", "runs"), "persistent evidence root")
+	addr := fs.String("addr", "127.0.0.1:8080", "HTTP listen address")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	server := &http.Server{
+		Addr:              *addr,
+		Handler:           webui.Server{EvidenceRoot: *evidenceRoot}.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	fmt.Printf("uLab evidence UI: http://%s\n", *addr)
+	return server.ListenAndServe()
 }
 
 func runInit(args []string) error {
