@@ -72,7 +72,7 @@ The first visual slice reads the same persisted bundles; it does not create a se
 ulab view --evidence-root .ulab/runs
 ```
 
-By default the server listens only on `127.0.0.1:8080`. Open `http://127.0.0.1:8080/` to inspect the latest run, switch between bundles, see the FROM → TARGET compatibility matrix, identify the first failed phase and recover the captured reproduction command. Use `--addr` only when you intentionally want a different listen address.
+By default the server listens only on `127.0.0.1:8080`. Open `http://127.0.0.1:8080/` to see release readiness derived from the recorded compatibility policy, inspect the FROM → TARGET matrix, jump directly to the first non-passing path, review its phase timeline and captured command/output/error evidence, and recover the reproduction command. Runner failures, project-hook failures and cancellations stay distinct; uLab does not guess whether a project-hook failure is an application defect or a test-definition defect. Use `--addr` only when you intentionally want a different listen address.
 
 Release builds expose their embedded identity with:
 
