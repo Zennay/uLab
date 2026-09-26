@@ -19,6 +19,7 @@ These must be complete before tagging:
 - [ ] `sh scripts/validate-local.sh` passes;
 - [ ] `CHANGELOG.md` contains a section for the intended version;
 - [ ] installation, security, contribution, conduct and release docs match current behavior;
+- [ ] baseline GitHub issue forms are present for bugs, feature requests and real external-integration feedback, with issue-template configuration committed;
 - [ ] no GitHub-hosted Actions/minutes are required.
 
 The automated subset is checked with:
@@ -28,6 +29,8 @@ sh scripts/release-preflight.sh v0.1.0
 ```
 
 The preflight deliberately fails while the name/license gates remain unresolved.
+
+The milestone-specific M5 usability-result form is evidence infrastructure for the current validation gate, not a permanent first-release requirement.
 
 ## Package candidate
 
