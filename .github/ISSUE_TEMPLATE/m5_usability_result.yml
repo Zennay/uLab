@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Use this form only after a real maintainer, contributor, or release engineer has attempted the five browser tasks in `docs/M5_USABILITY_VALIDATION.md`.
-        
+
         Negative, confusing, or failed sessions are valid evidence. Do not reconstruct answers after the fact, fill this from an AI evaluation, or turn facilitator impressions into participant claims.
   - type: input
     id: role
