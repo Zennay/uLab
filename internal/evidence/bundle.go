@@ -24,6 +24,9 @@ type BundleMetadata struct {
 	ResultSnapshot   string    `json:"result_snapshot"`
 	ReproduceCommand []string  `json:"reproduce_command"`
 	Jobs             int       `json:"jobs"`
+	JobsMode         string    `json:"jobs_mode,omitempty"`
+	MemoryReserveMB  uint64    `json:"memory_reserve_mb,omitempty"`
+	MemoryPerJobMB   uint64    `json:"memory_per_job_mb,omitempty"`
 	SourceVersions   []string  `json:"source_versions"`
 	TargetVersion    string    `json:"target_version"`
 	ToolVersion      string    `json:"tool_version"`

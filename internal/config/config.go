@@ -41,7 +41,10 @@ type Runner struct {
 }
 
 type Policy struct {
-	RequireAllPaths bool `json:"require_all_paths"`
+	RequireAllPaths   bool   `json:"require_all_paths"`
+	AutoConcurrency   bool   `json:"auto_concurrency,omitempty"`
+	MemoryReserveMB   uint64 `json:"memory_reserve_mb,omitempty"`
+	MemoryPerJobMB    uint64 `json:"memory_per_job_mb,omitempty"`
 }
 
 type Config struct {

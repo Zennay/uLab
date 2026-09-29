@@ -128,17 +128,50 @@ func interruptContext() (context.Context, context.CancelFunc) {
 	return ctx, stop
 }
 
+type jobsOption struct {
+	value int
+	auto  bool
+	set   bool
+}
+
+func (o jobsOption) String() string {
+	if o.auto {
+		return "auto"
+	}
+	return strconv.Itoa(o.value)
+}
+
+func (o *jobsOption) Set(raw string) error {
+	o.set = true
+	raw = strings.TrimSpace(strings.ToLower(raw))
+	if raw == "auto" {
+		o.auto = true
+		o.value = 0
+		return nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		return fmt.Errorf("jobs must be a positive integer or auto")
+	}
+	if value < 1 {
+		return errors.New("jobs must be at least 1")
+	}
+	o.auto = false
+	o.value = value
+	return nil
+}
+
 func runTestContext(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	configPath := fs.String("config", "ulab.json", "config path")
 	jsonOut := fs.String("json-out", "ulab-result.json", "result path")
 	evidenceRoot := fs.String("evidence-root", filepath.Join(".ulab", "runs"), "persistent evidence root")
-	jobs := fs.Int("jobs", 1, "maximum concurrent upgrade paths")
+	jobs := jobsOption{value: 1}
+	fs.Var(&jobs, "jobs", "maximum concurrent upgrade paths, or auto for RAM-aware concurrency")
+	memoryReserveMB := fs.Uint64("memory-reserve-mb", 0, "RAM to keep available in auto mode (MB)")
+	memoryPerJobMB := fs.Uint64("memory-per-job-mb", 0, "estimated RAM per test in auto mode (MB)")
 	if err := fs.Parse(args); err != nil {
 		return err
-	}
-	if *jobs < 1 {
-		return errors.New("jobs must be at least 1")
 	}
 
 	startedAt := time.Now().UTC()
@@ -151,8 +184,34 @@ func runTestContext(ctx context.Context, args []string) error {
 		return err
 	}
 
+	autoJobs := jobs.auto
+	jobCount := jobs.value
+	if !jobs.set && cfg.Policy.AutoConcurrency {
+		autoJobs = true
+		jobCount = matrix.DefaultAutoJobs()
+	}
+	if autoJobs && jobCount < 1 {
+		jobCount = matrix.DefaultAutoJobs()
+	}
+
+	memoryPolicy := matrix.DefaultMemoryPolicy()
+	if cfg.Policy.MemoryReserveMB > 0 {
+		memoryPolicy.ReserveBytes = cfg.Policy.MemoryReserveMB * 1024 * 1024
+	}
+	if cfg.Policy.MemoryPerJobMB > 0 {
+		memoryPolicy.PerJobBytes = cfg.Policy.MemoryPerJobMB * 1024 * 1024
+	}
+	if *memoryReserveMB > 0 {
+		memoryPolicy.ReserveBytes = *memoryReserveMB * 1024 * 1024
+	}
+	if *memoryPerJobMB > 0 {
+		memoryPolicy.PerJobBytes = *memoryPerJobMB * 1024 * 1024
+	}
+
 	m := matrix.Matrix{
-		Jobs: *jobs,
+		Jobs:   jobCount,
+		Auto:   autoJobs,
+		Memory: memoryPolicy,
 		RunnerFactory: func(plan engine.Plan) (runner.Runner, error) {
 			return buildRunner(cfg, plan)
 		},
@@ -165,11 +224,29 @@ func runTestContext(ctx context.Context, args []string) error {
 		return err
 	}
 	snapshotPath := filepath.Join(*evidenceRoot, invocationID, "config.json")
+	jobsMode := "fixed"
+	jobsArg := strconv.Itoa(jobCount)
+	if autoJobs {
+		jobsMode = "auto"
+		jobsArg = "auto"
+	}
 	reproduceCommand := []string{
 		"ulab", "test",
 		"--config", snapshotPath,
-		"--jobs", strconv.Itoa(*jobs),
+		"--jobs", jobsArg,
 		"--evidence-root", *evidenceRoot,
+	}
+	if *memoryReserveMB > 0 {
+		reproduceCommand = append(reproduceCommand, "--memory-reserve-mb", strconv.FormatUint(*memoryReserveMB, 10))
+	}
+	if *memoryPerJobMB > 0 {
+		reproduceCommand = append(reproduceCommand, "--memory-per-job-mb", strconv.FormatUint(*memoryPerJobMB, 10))
+	}
+	memoryReserveRecord := uint64(0)
+	memoryPerJobRecord := uint64(0)
+	if autoJobs {
+		memoryReserveRecord = memoryPolicy.ReserveBytes / (1024 * 1024)
+		memoryPerJobRecord = memoryPolicy.PerJobBytes / (1024 * 1024)
 	}
 	paths, err := evidence.WriteBundle(evidence.BundleInput{
 		Root:       *evidenceRoot,
@@ -181,7 +258,10 @@ func runTestContext(ctx context.Context, args []string) error {
 			CreatedAt:        startedAt,
 			WorkingDirectory: workingDirectory,
 			ReproduceCommand: reproduceCommand,
-			Jobs:             *jobs,
+			Jobs:             jobCount,
+			JobsMode:         jobsMode,
+			MemoryReserveMB:  memoryReserveRecord,
+			MemoryPerJobMB:   memoryPerJobRecord,
 			SourceVersions:   append([]string(nil), cfg.Versions.From...),
 			TargetVersion:    cfg.Versions.To,
 			ToolVersion:      version,

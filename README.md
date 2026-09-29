@@ -81,6 +81,33 @@ Release builds expose their embedded identity with:
 ulab version
 ```
 
+## Autonomous RAM-aware concurrency
+
+For a long-running VPS runner, use:
+
+```sh
+go run ./cmd/ulab test \
+  --jobs auto \
+  --config ulab.json
+```
+
+Auto mode uses the effective CPU count minus one as its upper bound. Before each new path starts, it checks Linux `MemAvailable` and keeps a safety reserve. Defaults keep 2 GiB for the rest of the VPS and budget 1 GiB per active path. If FTMO, HaxLab, zCloud, or another service uses more RAM, uLab admits fewer new paths; already-running paths are allowed to finish.
+
+The reserve and estimate can be tuned with `--memory-reserve-mb` and `--memory-per-job-mb`, or in the config policy:
+
+```json
+{
+  "policy": {
+    "require_all_paths": true,
+    "auto_concurrency": true,
+    "memory_reserve_mb": 2048,
+    "memory_per_job_mb": 1024
+  }
+}
+```
+
+An explicit `--jobs N` overrides `auto_concurrency` and keeps fixed parallelism. On systems without `/proc/meminfo`, auto mode falls back to its CPU-based upper bound.
+
 ## Configuration
 
 `versions.from` accepts a single version or a list. Source versions must be unique so each matrix row represents one distinct compatibility path:

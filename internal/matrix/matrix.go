@@ -18,6 +18,8 @@ type Result struct {
 
 type Matrix struct {
 	Jobs          int
+	Auto          bool
+	Memory        MemoryPolicy
 	RunnerFactory RunnerFactory
 }
 
@@ -30,6 +32,9 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 	result.Runs = make([]engine.RunResult, len(plans))
 
 	jobs := m.Jobs
+	if m.Auto && jobs < 1 {
+		jobs = DefaultAutoJobs()
+	}
 	if jobs < 1 {
 		jobs = 1
 	}
@@ -37,7 +42,17 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 		jobs = len(plans)
 	}
 
-	indices := make(chan int)
+	var governor *memoryGovernor
+	if m.Auto {
+		governor = newMemoryGovernor(jobs, m.Memory)
+	}
+
+	indices := make(chan int, len(plans))
+	for index := range plans {
+		indices <- index
+	}
+	close(indices)
+
 	var wg sync.WaitGroup
 	wg.Add(jobs)
 	for worker := 0; worker < jobs; worker++ {
@@ -45,15 +60,21 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 			defer wg.Done()
 			for index := range indices {
 				plan := plans[index]
-				if ctx.Err() != nil {
-					result.Runs[index] = engine.RunResult{
-						SourceVersion: plan.SourceVersion,
-						TargetVersion: plan.TargetVersion,
-						Status:        engine.StatusCanceled,
-						FailureKind:   engine.FailureCanceled,
+				if governor != nil {
+					if err := governor.acquire(ctx); err != nil {
+						result.Runs[index] = canceledRun(plan)
+						return
 					}
-					continue
 				}
+
+				if ctx.Err() != nil {
+					if governor != nil {
+						governor.release()
+					}
+					result.Runs[index] = canceledRun(plan)
+					return
+				}
+
 				selectedRunner, err := m.RunnerFactory(plan)
 				if err != nil {
 					result.Runs[index] = engine.RunResult{
@@ -62,18 +83,25 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 						Status:        engine.StatusFailed,
 						FailureKind:   engine.FailureRunner,
 					}
-					continue
+				} else {
+					result.Runs[index] = engine.Engine{Runner: selectedRunner}.Run(ctx, plan)
 				}
-				result.Runs[index] = engine.Engine{Runner: selectedRunner}.Run(ctx, plan)
+				if governor != nil {
+					governor.release()
+				}
 			}
 		}()
 	}
 
-	for index := range plans {
-		indices <- index
-	}
-	close(indices)
 	wg.Wait()
+
+	if ctx.Err() != nil {
+		for index, run := range result.Runs {
+			if run.Status == "" {
+				result.Runs[index] = canceledRun(plans[index])
+			}
+		}
+	}
 
 	for _, run := range result.Runs {
 		if run.Status != engine.StatusPassed {
@@ -82,4 +110,13 @@ func (m Matrix) Run(ctx context.Context, plans []engine.Plan) Result {
 		}
 	}
 	return result
+}
+
+func canceledRun(plan engine.Plan) engine.RunResult {
+	return engine.RunResult{
+		SourceVersion: plan.SourceVersion,
+		TargetVersion: plan.TargetVersion,
+		Status:        engine.StatusCanceled,
+		FailureKind:   engine.FailureCanceled,
+	}
 }

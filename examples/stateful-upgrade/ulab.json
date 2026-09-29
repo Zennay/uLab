@@ -17,6 +17,9 @@
     "command": "./examples/stateful-upgrade/scripts/verify.sh"
   },
   "policy": {
-    "require_all_paths": true
+    "require_all_paths": true,
+    "auto_concurrency": true,
+    "memory_reserve_mb": 2048,
+    "memory_per_job_mb": 1024
   }
 }
