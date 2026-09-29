@@ -42,7 +42,7 @@ func DefaultMemoryPolicy() MemoryPolicy {
 }
 
 func DefaultAutoJobs() int {
-	cpus := runtime.NumCPU()
+	cpus := runtime.GOMAXPROCS(0)
 	if cpus > 1 {
 		return cpus - 1
 	}
