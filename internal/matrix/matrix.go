@@ -11,9 +11,9 @@ import (
 type RunnerFactory func(plan engine.Plan) (runner.Runner, error)
 
 type Result struct {
-	TargetVersion string             \`json:"target_version"\`
-	Status        engine.Status      \`json:"status"\`
-	Runs          []engine.RunResult \`json:"runs"\`
+	TargetVersion string             `json:"target_version"`
+	Status        engine.Status      `json:"status"`
+	Runs          []engine.RunResult `json:"runs"`
 }
 
 type Matrix struct {
