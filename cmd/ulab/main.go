@@ -236,6 +236,24 @@ func runTestContext(ctx context.Context, args []string) error {
 		"--jobs", jobsArg,
 		"--evidence-root", *evidenceRoot,
 	}
+	if *memoryReserveMB > 0 {
+		reproduceCommand = append(reproduceCommand, "--memory-reserve-mb", strconv.FormatUint(*memoryReserveMB, 10))
+	}
+	if *memoryPerJobMB > 0 {
+		reproduceCommand = append(reproduceCommand, "--memory-per-job-mb", strconv.FormatUint(*memoryPerJobMB, 10))
+	}
+	paths, err := evidence.WriteBundle(evidence.BundleInput{
+		Root:       *evidenceRoot,
+		ID:         invocationID,
+		ConfigPath: *configPath,
+		Config:     configBytes,
+		Result:     result,
+	memoryReserveRecord := uint64(0)
+	memoryPerJobRecord := uint64(0)
+	if autoJobs {
+		memoryReserveRecord = memoryPolicy.ReserveBytes / (1024 * 1024)
+		memoryPerJobRecord = memoryPolicy.PerJobBytes / (1024 * 1024)
+	}
 	paths, err := evidence.WriteBundle(evidence.BundleInput{
 		Root:       *evidenceRoot,
 		ID:         invocationID,
@@ -248,8 +266,8 @@ func runTestContext(ctx context.Context, args []string) error {
 			ReproduceCommand: reproduceCommand,
 			Jobs:             jobCount,
 			JobsMode:         jobsMode,
-			MemoryReserveMB:  memoryPolicy.ReserveBytes / (1024 * 1024),
-			MemoryPerJobMB:   memoryPolicy.PerJobBytes / (1024 * 1024),
+			MemoryReserveMB:  memoryReserveRecord,
+			MemoryPerJobMB:   memoryPerJobRecord,
 			SourceVersions:   append([]string(nil), cfg.Versions.From...),
 			TargetVersion:    cfg.Versions.To,
 			ToolVersion:      version,
