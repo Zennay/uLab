@@ -14,24 +14,24 @@ import (
 const BundleSchemaVersion = 1
 
 type BundleMetadata struct {
-	SchemaVersion    int       \`json:"schema_version"\`
-	InvocationID     string    \`json:"invocation_id"\`
-	CreatedAt        time.Time \`json:"created_at"\`
-	WorkingDirectory string    \`json:"working_directory"\`
-	ConfigPath       string    \`json:"config_path"\`
-	ConfigSHA256     string    \`json:"config_sha256"\`
-	ConfigSnapshot   string    \`json:"config_snapshot"\`
-	ResultSnapshot   string    \`json:"result_snapshot"\`
-	ReproduceCommand []string  \`json:"reproduce_command"\`
-	Jobs             int       \`json:"jobs"\`
-	JobsMode         string    \`json:"jobs_mode,omitempty"\`
-	MemoryReserveMB  uint64    \`json:"memory_reserve_mb,omitempty"\`
-	MemoryPerJobMB   uint64    \`json:"memory_per_job_mb,omitempty"\`
-	SourceVersions   []string  \`json:"source_versions"\`
-	TargetVersion    string    \`json:"target_version"\`
-	ToolVersion      string    \`json:"tool_version"\`
-	ToolCommit       string    \`json:"tool_commit"\`
-	GoVersion        string    \`json:"go_version"\`
+	SchemaVersion    int       `json:"schema_version"`
+	InvocationID     string    `json:"invocation_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	WorkingDirectory string    `json:"working_directory"`
+	ConfigPath       string    `json:"config_path"`
+	ConfigSHA256     string    `json:"config_sha256"`
+	ConfigSnapshot   string    `json:"config_snapshot"`
+	ResultSnapshot   string    `json:"result_snapshot"`
+	ReproduceCommand []string  `json:"reproduce_command"`
+	Jobs             int       `json:"jobs"`
+	JobsMode         string    `json:"jobs_mode,omitempty"`
+	MemoryReserveMB  uint64    `json:"memory_reserve_mb,omitempty"`
+	MemoryPerJobMB   uint64    `json:"memory_per_job_mb,omitempty"`
+	SourceVersions   []string  `json:"source_versions"`
+	TargetVersion    string    `json:"target_version"`
+	ToolVersion      string    `json:"tool_version"`
+	ToolCommit       string    `json:"tool_commit"`
+	GoVersion        string    `json:"go_version"`
 }
 
 type BundleInput struct {
