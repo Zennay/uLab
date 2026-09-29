@@ -10,7 +10,7 @@ import (
 )
 
 type Hook struct {
-	Command string `json:"command"`
+	Command string \`json:"command"\`
 }
 
 type VersionList []string
@@ -31,26 +31,29 @@ func (v *VersionList) UnmarshalJSON(data []byte) error {
 }
 
 type Versions struct {
-	From VersionList `json:"from"`
-	To   string      `json:"to"`
+	From VersionList \`json:"from"\`
+	To   string      \`json:"to"\`
 }
 
 type Runner struct {
-	Type        string `json:"type,omitempty"`
-	ComposeFile string `json:"compose_file,omitempty"`
+	Type        string \`json:"type,omitempty"\`
+	ComposeFile string \`json:"compose_file,omitempty"\`
 }
 
 type Policy struct {
-	RequireAllPaths bool `json:"require_all_paths"`
+	RequireAllPaths   bool   \`json:"require_all_paths"\`
+	AutoConcurrency   bool   \`json:"auto_concurrency,omitempty"\`
+	MemoryReserveMB   uint64 \`json:"memory_reserve_mb,omitempty"\`
+	MemoryPerJobMB    uint64 \`json:"memory_per_job_mb,omitempty"\`
 }
 
 type Config struct {
-	Runner   Runner   `json:"runner,omitempty"`
-	Versions Versions `json:"versions"`
-	Setup    Hook     `json:"setup"`
-	Upgrade  Hook     `json:"upgrade"`
-	Verify   Hook     `json:"verify"`
-	Policy   Policy   `json:"policy,omitempty"`
+	Runner   Runner   \`json:"runner,omitempty"\`
+	Versions Versions \`json:"versions"\`
+	Setup    Hook     \`json:"setup"\`
+	Upgrade  Hook     \`json:"upgrade"\`
+	Verify   Hook     \`json:"verify"\`
+	Policy   Policy   \`json:"policy,omitempty"\`
 }
 
 func Load(path string) (Config, error) {
