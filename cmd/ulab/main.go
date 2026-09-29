@@ -242,12 +242,6 @@ func runTestContext(ctx context.Context, args []string) error {
 	if *memoryPerJobMB > 0 {
 		reproduceCommand = append(reproduceCommand, "--memory-per-job-mb", strconv.FormatUint(*memoryPerJobMB, 10))
 	}
-	paths, err := evidence.WriteBundle(evidence.BundleInput{
-		Root:       *evidenceRoot,
-		ID:         invocationID,
-		ConfigPath: *configPath,
-		Config:     configBytes,
-		Result:     result,
 	memoryReserveRecord := uint64(0)
 	memoryPerJobRecord := uint64(0)
 	if autoJobs {
