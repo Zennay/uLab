@@ -1,30 +1,45 @@
 # uLab
 
-uLab is a compatibility lab for stateful upgrades. A project describes how to set up a source-version dataset, upgrade it to a target version, and verify that the upgraded state remains correct. uLab orchestrates those steps across every requested source version and preserves machine-readable evidence for each run.
+uLab tests software upgrade paths without taking ownership of an application's upgrade logic.
 
-## Status
+A project defines how to set up old state, perform its upgrade and verify correctness. uLab handles the surrounding execution: isolated runner lifecycle, multiple source versions, failure handling and machine-readable evidence.
 
-This repository contains the first runnable uLab prototype:
+> uLab owns orchestration. Projects own their upgrade logic.
+
+## Current state
+
+The current prototype supports:
 
 - process and Docker Compose runners;
-- setup, upgrade, and verify hooks;
-- multiple source versions against one target version;
-- bounded concurrent upgrade paths;
-- RAM-aware automatic concurrency for VPS runners;
-- JSON result output and persistent evidence bundles;
-- a small evidence viewer.
+- `setup -> upgrade -> verify` hooks;
+- cleanup on success, hook/runner failure, and graceful SIGINT/SIGTERM cancellation; after the first interrupt starts cleanup, a second interrupt uses the OS default behavior as an escape hatch;
+- multiple source versions against one target;
+- bounded concurrent paths with `--jobs`;
+- JSON evidence and a non-zero compatibility gate;
+- persistent evidence bundles with config hashes and reproduction metadata;
+- a read-only local compatibility view over persisted evidence;
+- a stateful Docker fixture with both passing and destructive upgrade cases.
 
-The project is intentionally runner-oriented: uLab owns the lifecycle and evidence, while the project under test owns the setup, upgrade, and verification commands.
+## Project status
 
-## Quick start
+uLab is an early prototype. The public configuration and evidence formats may change while external integrations are being validated.
 
-Create a starter configuration:
+`uLab` is still a working name. A project license has also not been selected yet, so do not assume reuse rights beyond applicable law until a license file is added.
 
-```sh
-go run ./cmd/ulab init --config ulab.json
-```
+Project guides:
 
-Run a process-backed matrix:
+- [Installation](docs/INSTALL.md)
+- [Contributing](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security](SECURITY.md)
+- [Releasing](docs/RELEASING.md)
+- [First release checklist](docs/FIRST_RELEASE_CHECKLIST.md)
+- [Changelog](CHANGELOG.md)
+- [External validation protocol](docs/EXTERNAL_VALIDATION.md)
+
+## Try the included fixture
+
+Docker is required for the example.
 
 ```sh
 go run ./cmd/ulab test \
@@ -32,27 +47,53 @@ go run ./cmd/ulab test \
   --config examples/stateful-upgrade/ulab.json
 ```
 
-For a long-running VPS runner, let uLab choose the number of concurrent paths from the live RAM headroom:
+The fixture checks three source versions against `v2`. A second config deliberately removes required state and should fail:
 
 ```sh
 go run ./cmd/ulab test \
-  --jobs auto \
-  --config examples/stateful-upgrade/ulab.json
+  --jobs 2 \
+  --config examples/stateful-upgrade/ulab-broken.json
 ```
 
-Auto mode uses the number of CPUs minus one as its upper bound, then admits each new path only when Linux `MemAvailable` has room for the configured safety reserve and estimated per-test memory. The defaults keep 2 GiB available for the rest of the VPS and budget 1 GiB per active path. If another service (for example FTMO, HaxLab, or zCloud) uses more RAM, uLab automatically starts fewer new paths; it never stops a path that is already running. On systems without `/proc/meminfo`, auto mode falls back to its CPU-based upper bound.
+## Evidence and reproduction
 
-The RAM assumptions can be tuned without code changes:
+Each invocation of `ulab test` publishes a bundle under `.ulab/runs/<invocation-id>/` only after its snapshots and metadata have been written successfully, so a normal write failure cannot expose a half-complete invocation directory. Each bundle contains:
+
+- the exact config bytes used for the run;
+- `result.json`;
+- `metadata.json` with a SHA-256 config hash, working directory, source/target matrix, concurrency, tool build identity and a reproduction command.
+
+The normal `--json-out` file remains available for integrations that only need the machine-readable release gate. The persistent bundle is published first, so a failure writing the separate `--json-out` path does not discard the run evidence. Use `--evidence-root` to place persistent bundles elsewhere. Interrupted paths are recorded as `canceled` rather than `failed`, so operator cancellation is not presented as an upgrade incompatibility; the overall release gate still remains non-passing.
+
+### View evidence locally
+
+The first visual slice reads the same persisted bundles; it does not create a second result store.
+
+```sh
+ulab view --evidence-root .ulab/runs
+```
+
+By default the server listens only on `127.0.0.1:8080`. Open `http://127.0.0.1:8080/` to see release readiness derived from the recorded compatibility policy, inspect the FROM → TARGET matrix, jump directly to the first non-passing path, review its phase timeline and captured command/output/error evidence, and recover the reproduction command. Runner failures, project-hook failures and cancellations stay distinct; uLab does not guess whether a project-hook failure is an application defect or a test-definition defect. Use `--addr` only when you intentionally want a different listen address.
+
+Release builds expose their embedded identity with:
+
+```sh
+ulab version
+```
+
+## Autonomous RAM-aware concurrency
+
+For a long-running VPS runner, use:
 
 ```sh
 go run ./cmd/ulab test \
   --jobs auto \
-  --memory-reserve-mb 3072 \
-  --memory-per-job-mb 1536 \
   --config ulab.json
 ```
 
-The same behavior can be enabled in a configuration used by an autonomous service:
+Auto mode uses the effective CPU count minus one as its upper bound. Before each new path starts, it checks Linux `MemAvailable` and keeps a safety reserve. Defaults keep 2 GiB for the rest of the VPS and budget 1 GiB per active path. If FTMO, HaxLab, zCloud, or another service uses more RAM, uLab admits fewer new paths; already-running paths are allowed to finish.
+
+The reserve and estimate can be tuned with `--memory-reserve-mb` and `--memory-per-job-mb`, or in the config policy:
 
 ```json
 {
@@ -65,64 +106,62 @@ The same behavior can be enabled in a configuration used by an autonomous servic
 }
 ```
 
-An explicit `--jobs N` always overrides `auto_concurrency` and keeps deterministic fixed parallelism.
-
-Each Docker Compose run scopes its project name to the source/target pair and a unique run identifier, so parallel paths do not share containers or volumes. Cleanup runs even after a failed hook.
-
-View stored evidence:
-
-```sh
-go run ./cmd/ulab view --evidence-root .ulab/runs
-```
-
-Then open `http://127.0.0.1:8080`.
+An explicit `--jobs N` overrides `auto_concurrency` and keeps fixed parallelism. On systems without `/proc/meminfo`, auto mode falls back to its CPU-based upper bound.
 
 ## Configuration
+
+`versions.from` accepts a single version or a list. Source versions must be unique so each matrix row represents one distinct compatibility path:
 
 ```json
 {
   "runner": {
     "type": "docker-compose",
-    "compose_file": "examples/stateful-upgrade/compose.yaml"
+    "compose_file": "compose.yaml"
   },
   "versions": {
-    "from": ["v1", "v1.1", "v1.2"],
-    "to": "v2"
+    "from": ["v1.8.0", "v1.9.0", "v2.0.0"],
+    "to": "v3.0.0"
   },
-  "setup": {
-    "command": "./scripts/setup.sh"
-  },
-  "upgrade": {
-    "command": "./scripts/upgrade.sh"
-  },
-  "verify": {
-    "command": "./scripts/verify.sh"
-  },
-  "policy": {
-    "require_all_paths": true
-  }
+  "setup": { "command": "./ulab/setup.sh" },
+  "upgrade": { "command": "./ulab/upgrade.sh" },
+  "verify": { "command": "./ulab/verify.sh" },
+  "policy": { "require_all_paths": true }
 }
 ```
 
-`versions.from` accepts either one string or an array. The runner type defaults to `process`. Docker Compose requires `runner.compose_file`.
+Each hook receives:
 
-## Evidence
-
-Every test invocation writes a bundle under `.ulab/runs/<invocation-id>/` containing:
-
-- the exact configuration snapshot;
-- the full result snapshot;
-- metadata including source/target versions, tool version, and reproduction command;
-- the configured concurrency mode and RAM budget.
-
-The bundle is published atomically so interrupted runs do not leave a partially published result.
-
-## Local validation
-
-Run:
-
-```sh
-scripts/validate-local.sh
+```text
+ULAB_RUN_ID
+ULAB_SOURCE_VERSION
+ULAB_TARGET_VERSION
 ```
 
-The validation script runs shell checks, Go tests, `go vet`, a build, and a three-path acceptance matrix.
+For Docker Compose runs, uLab scopes the Compose project name to the source/target path **and the unique run id**, then performs cleanup after each path. This prevents identical upgrade paths in separate or concurrent runs from sharing Compose resources.
+
+## Validate locally
+
+The canonical validation path consumes no GitHub-hosted runner minutes or credits:
+
+```sh
+sh scripts/validate-local.sh
+```
+
+It runs the Go test suite and `go vet`, builds a revision-stamped binary, exercises three source versions with `--jobs 2`, verifies the terminal compatibility matrix, then deliberately fails one path and checks the non-zero release gate plus persistent evidence output. Docker is not required for this deterministic core validation.
+
+## Local release artifacts
+
+uLab can be packaged without GitHub-hosted CI or paid runners:
+
+```sh
+sh scripts/release.sh v0.1.0
+sh scripts/verify-release.sh dist/SHA256SUMS
+```
+
+The release flow runs the Go test suite first, cross-compiles six platform binaries, embeds the release version and source commit, and writes SHA-256 checksums plus release provenance metadata. See [docs/RELEASING.md](docs/RELEASING.md).
+
+A separate public-release preflight intentionally blocks tagging while required release decisions such as the project license remain unresolved.
+
+## What uLab does not decide
+
+uLab does not infer whether application data is correct after an upgrade. The project owns those assertions. uLab's job is to run them consistently across supported paths and preserve the resulting evidence.
