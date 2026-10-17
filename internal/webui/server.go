@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -51,8 +52,7 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := pageData{
-		EvidenceRoot: s.EvidenceRoot,
-		Bundles:      bundles,
+		Bundles: bundles,
 	}
 	if len(bundles) > 0 {
 		selected := 0
@@ -80,10 +80,20 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		data.SelectedRun = selectedRun
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := pageTemplate.Execute(w, data); err != nil {
-		http.Error(w, "render evidence: "+err.Error(), http.StatusInternalServerError)
+	writeEvidencePage(w, pageTemplate, data)
+}
+
+// Never stream a partial HTML page or template evaluation errors to the browser.
+// Error strings and partially rendered content may contain private evidence
+// metadata, hook output or local paths. Buffer until the render fully succeeds.
+func writeEvidencePage(w http.ResponseWriter, view *template.Template, data pageData) {
+	var page bytes.Buffer
+	if err := view.Execute(&page, data); err != nil {
+		http.Error(w, "evidence unavailable", http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(page.Bytes())
 }
 
 func LoadBundles(root string) ([]Bundle, error) {
@@ -278,11 +288,10 @@ func selectRun(runs []engine.RunResult, source string) (*engine.RunResult, error
 }
 
 type pageData struct {
-	EvidenceRoot string
-	Bundles      []Bundle
-	Selected     *Bundle
-	SelectedRun  *engine.RunResult
-	Readiness    readiness
+	Bundles     []Bundle
+	Selected    *Bundle
+	SelectedRun *engine.RunResult
+	Readiness   readiness
 }
 
 func failedPhase(run engine.RunResult) string {
@@ -416,7 +425,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 <body>
 <main>
 	<h1>Compatibility evidence</h1>
-	<p class="muted">Read-only view of persisted uLab evidence. Evidence root: <code>{{.EvidenceRoot}}</code></p>
+	<p class="muted">Read-only view of persisted local uLab evidence. Local filesystem paths are not displayed.</p>
 
 	{{if .Selected}}
 	<div class="toolbar">
