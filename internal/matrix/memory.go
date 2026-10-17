@@ -87,13 +87,16 @@ func (g *memoryGovernor) acquire(ctx context.Context) error {
 	for {
 		g.mu.Lock()
 		if g.active < g.maxJobs {
-			allowed := true
-			if g.read != nil {
+			// Missing/failed telemetry is not a license to launch more work.
+			// Budget division also avoids uint64 overflow in per-job cost * jobs.
+			allowed := false
+			if g.read != nil && g.perJobBytes != 0 {
 				snapshot, err := g.read()
-				if err == nil {
-					needed := g.perJobBytes * uint64(g.active+1)
-					allowed = snapshot.AvailableBytes > g.reserveBytes &&
-						snapshot.AvailableBytes-g.reserveBytes >= needed
+				if err == nil && snapshot.TotalBytes > 0 &&
+					snapshot.AvailableBytes <= snapshot.TotalBytes &&
+					snapshot.AvailableBytes > g.reserveBytes {
+					budget := snapshot.AvailableBytes - g.reserveBytes
+					allowed = uint64(g.active+1) <= budget/g.perJobBytes
 				}
 			}
 			if allowed {
@@ -129,19 +132,33 @@ func readProcMemory() (MemorySnapshot, error) {
 	if err != nil {
 		return MemorySnapshot{}, err
 	}
+	return parseProcMemory(data)
+}
 
+// parseProcMemory keeps malformed, contradictory or overflowing telemetry
+// from being interpreted as spare capacity. It is independently testable
+// without changing the real host's /proc or running an upgrade workload.
+func parseProcMemory(data []byte) (MemorySnapshot, error) {
 	var snapshot MemorySnapshot
+	var seenAvailable, seenTotal bool
 	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) < 2 {
+		if len(fields) == 0 {
 			continue
+		}
+		name := strings.TrimSuffix(fields[0], ":")
+		if name != "MemAvailable" && name != "MemTotal" {
+			continue
+		}
+		if len(fields) < 2 || len(fields) > 3 {
+			return MemorySnapshot{}, fmt.Errorf("invalid %s memory telemetry", name)
 		}
 		value, err := strconv.ParseUint(fields[1], 10, 64)
 		if err != nil {
-			continue
+			return MemorySnapshot{}, fmt.Errorf("invalid %s memory telemetry: %w", name, err)
 		}
 		unit := uint64(1)
-		if len(fields) >= 3 {
+		if len(fields) == 3 {
 			switch strings.ToLower(fields[2]) {
 			case "kb":
 				unit = 1024
@@ -149,21 +166,35 @@ func readProcMemory() (MemorySnapshot, error) {
 				unit = 1024 * 1024
 			case "gb":
 				unit = 1024 * 1024 * 1024
+			default:
+				return MemorySnapshot{}, fmt.Errorf("unsupported %s memory telemetry unit", name)
 			}
 		}
+		if value > ^uint64(0)/unit {
+			return MemorySnapshot{}, fmt.Errorf("overflowing %s memory telemetry", name)
+		}
 		value *= unit
-		switch strings.TrimSuffix(fields[0], ":") {
+		switch name {
 		case "MemAvailable":
-			snapshot.AvailableBytes = value
+			if seenAvailable {
+				return MemorySnapshot{}, errors.New("duplicate MemAvailable memory telemetry")
+			}
+			seenAvailable, snapshot.AvailableBytes = true, value
 		case "MemTotal":
-			snapshot.TotalBytes = value
+			if seenTotal {
+				return MemorySnapshot{}, errors.New("duplicate MemTotal memory telemetry")
+			}
+			seenTotal, snapshot.TotalBytes = true, value
 		}
 	}
-	if snapshot.AvailableBytes == 0 {
+	if !seenAvailable || snapshot.AvailableBytes == 0 {
 		return MemorySnapshot{}, errors.New("MemAvailable is missing from /proc/meminfo")
 	}
-	if snapshot.TotalBytes == 0 {
-		return MemorySnapshot{}, fmt.Errorf("MemTotal is missing from /proc/meminfo")
+	if !seenTotal || snapshot.TotalBytes == 0 {
+		return MemorySnapshot{}, errors.New("MemTotal is missing from /proc/meminfo")
+	}
+	if snapshot.AvailableBytes > snapshot.TotalBytes {
+		return MemorySnapshot{}, errors.New("MemAvailable exceeds MemTotal")
 	}
 	return snapshot, nil
 }
