@@ -9,7 +9,16 @@ import (
 func phaseInventory(phases ...engine.Phase) []engine.PhaseResult {
 	results := make([]engine.PhaseResult, len(phases))
 	for i, phase := range phases {
-		results[i] = engine.PhaseResult{Phase: phase, Status: engine.StatusPassed}
+		command := ""
+		switch phase {
+		case engine.PhaseSetup:
+			command = "./setup.sh"
+		case engine.PhaseUpgrade:
+			command = "./upgrade.sh"
+		case engine.PhaseVerify:
+			command = "./verify.sh"
+		}
+		results[i] = engine.PhaseResult{Phase: phase, Status: engine.StatusPassed, Command: command}
 	}
 	return results
 }
