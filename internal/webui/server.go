@@ -288,10 +288,10 @@ func selectRun(runs []engine.RunResult, source string) (*engine.RunResult, error
 }
 
 type pageData struct {
-	Bundles      []Bundle
-	Selected     *Bundle
-	SelectedRun  *engine.RunResult
-	Readiness    readiness
+	Bundles     []Bundle
+	Selected    *Bundle
+	SelectedRun *engine.RunResult
+	Readiness   readiness
 }
 
 func failedPhase(run engine.RunResult) string {
