@@ -87,13 +87,16 @@ func (g *memoryGovernor) acquire(ctx context.Context) error {
 	for {
 		g.mu.Lock()
 		if g.active < g.maxJobs {
-			allowed := true
-			if g.read != nil {
+			// Missing/failed telemetry is not a license to launch more work.
+			// Budget division also avoids uint64 overflow in per-job cost * jobs.
+			allowed := false
+			if g.read != nil && g.perJobBytes != 0 {
 				snapshot, err := g.read()
-				if err == nil {
-					needed := g.perJobBytes * uint64(g.active+1)
-					allowed = snapshot.AvailableBytes > g.reserveBytes &&
-						snapshot.AvailableBytes-g.reserveBytes >= needed
+				if err == nil && snapshot.TotalBytes > 0 &&
+					snapshot.AvailableBytes <= snapshot.TotalBytes &&
+					snapshot.AvailableBytes > g.reserveBytes {
+					budget := snapshot.AvailableBytes - g.reserveBytes
+					allowed = uint64(g.active+1) <= budget/g.perJobBytes
 				}
 			}
 			if allowed {
