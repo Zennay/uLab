@@ -74,8 +74,8 @@ func TestUnexpectedPassedTargetDoesNotCountAsRequiredUpgradePath(t *testing.T) {
 func TestExactMatchingUpgradePathKeepsReady(t *testing.T) {
 	b := writeCoverageBundle(t, []string{"v1", "v2"}, "v3",
 		[]engine.RunResult{
-			{SourceVersion: "v1", TargetVersion: "v3", Status: engine.StatusPassed},
-			{SourceVersion: "v2", TargetVersion: "v3", Status: engine.StatusPassed},
+			{SourceVersion: "v1", TargetVersion: "v3", Status: engine.StatusPassed, Phases: phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup)},
+			{SourceVersion: "v2", TargetVersion: "v3", Status: engine.StatusPassed, Phases: phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup)},
 		}, engine.StatusPassed)
 	if got := releaseReadiness(b).Label; got != "READY" {
 		t.Fatalf("complete matching upgrade paths lost READY: %q", got)
