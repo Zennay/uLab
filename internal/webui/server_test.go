@@ -250,8 +250,8 @@ func TestLoadBundlesRejectsInvalidConfigSnapshot(t *testing.T) {
 	}
 
 	_, err := LoadBundles(root)
-	if err == nil || !strings.Contains(err.Error(), "versions.from") {
-		t.Fatalf("LoadBundles error = %v, want invalid config error", err)
+	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
+		t.Fatalf("LoadBundles error = %v, want evidence hash mismatch", err)
 	}
 }
 
