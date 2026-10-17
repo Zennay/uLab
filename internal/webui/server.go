@@ -211,6 +211,14 @@ func releaseReadiness(bundle Bundle) readiness {
 		}
 	}
 
+	if !hasCoherentPassingPhases(bundle) {
+		return readiness{
+			Label: "UNVERIFIED", Class: "unknown",
+			Detail: "A passing run contradicts its recorded phase status or failure marker; review the original upgrade evidence.",
+			Passed: passed, Total: total,
+		}
+	}
+
 	switch {
 	case total == 0:
 		return readiness{
