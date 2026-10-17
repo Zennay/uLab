@@ -21,10 +21,11 @@ import (
 )
 
 type Bundle struct {
-	Dir      string
-	Config   config.Config
-	Metadata evidence.BundleMetadata
-	Result   matrix.Result
+	ResultChecksumValid bool
+	Dir                 string
+	Config              config.Config
+	Metadata            evidence.BundleMetadata
+	Result              matrix.Result
 }
 
 type Server struct {
@@ -132,16 +133,29 @@ func LoadBundles(root string) ([]Bundle, error) {
 			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
 		}
 
+		resultBytes, err := readEvidenceSnapshot(filepath.Join(dir, "result.json"), maxEvidenceResultBytes)
+		if err != nil {
+			return nil, fmt.Errorf("%s result: %w", entry.Name(), err)
+		}
+		validResultHash := false
+		if metadata.ResultSHA256 != "" {
+			hash := sha256.Sum256(resultBytes)
+			if metadata.ResultSHA256 != "sha256:"+hex.EncodeToString(hash[:]) {
+				return nil, fmt.Errorf("%s result: evidence snapshot hash mismatch", entry.Name())
+			}
+			validResultHash = true
+		}
 		var result matrix.Result
-		if err := readJSON(filepath.Join(dir, "result.json"), &result, maxEvidenceResultBytes); err != nil {
+		if err := json.Unmarshal(resultBytes, &result); err != nil {
 			return nil, fmt.Errorf("%s result: %w", entry.Name(), err)
 		}
 
 		bundles = append(bundles, Bundle{
-			Dir:      dir,
-			Config:   cfg,
-			Metadata: metadata,
-			Result:   result,
+			ResultChecksumValid: validResultHash,
+			Dir:                 dir,
+			Config:              cfg,
+			Metadata:            metadata,
+			Result:              result,
 		})
 	}
 
@@ -179,6 +193,13 @@ func releaseReadiness(bundle Bundle) readiness {
 	for _, run := range bundle.Result.Runs {
 		if run.Status == engine.StatusPassed {
 			passed++
+		}
+	}
+	if !bundle.ResultChecksumValid {
+		return readiness{
+			Label: "UNVERIFIED", Class: "unknown",
+			Detail: "This historical result lacks a stored result checksum; rerun the upgrade before assessing release readiness.",
+			Passed: passed, Total: total,
 		}
 	}
 
@@ -462,6 +483,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 		<h2>Reproduce and provenance</h2>
 		<div class="meta">
 			<div><strong>Config SHA-256</strong><code>{{.Selected.Metadata.ConfigSHA256}}</code></div>
+            <div><strong>Result SHA-256</strong><code>{{if .Selected.Metadata.ResultSHA256}}{{.Selected.Metadata.ResultSHA256}}{{else}}not recorded (legacy){{end}}</code></div>
 			<div><strong>Jobs</strong>{{.Selected.Metadata.Jobs}}</div>
 			<div><strong>Runner</strong>{{if .Selected.Config.Runner.Type}}{{.Selected.Config.Runner.Type}}{{else}}process{{end}}</div>
 			<div><strong>Evidence bundle</strong><code>{{.Selected.Metadata.InvocationID}}</code></div>

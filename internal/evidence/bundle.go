@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +23,7 @@ type BundleMetadata struct {
 	WorkingDirectory string    `json:"working_directory"`
 	ConfigPath       string    `json:"config_path"`
 	ConfigSHA256     string    `json:"config_sha256"`
+	ResultSHA256     string    `json:"result_sha256,omitempty"`
 	ConfigSnapshot   string    `json:"config_snapshot"`
 	ResultSnapshot   string    `json:"result_snapshot"`
 	ReproduceCommand []string  `json:"reproduce_command"`
@@ -114,6 +116,20 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	if err := WriteJSON(tempPaths.Result, input.Result); err != nil {
 		return BundlePaths{}, fmt.Errorf("write result snapshot: %w", err)
 	}
+	resultFile, err := os.Open(tempPaths.Result)
+	if err != nil {
+		return BundlePaths{}, fmt.Errorf("read result snapshot: %w", err)
+	}
+	resultHasher := sha256.New()
+	_, hashErr := io.Copy(resultHasher, resultFile)
+	closeErr := resultFile.Close()
+	if hashErr != nil {
+		return BundlePaths{}, fmt.Errorf("hash result snapshot: %w", hashErr)
+	}
+	if closeErr != nil {
+		return BundlePaths{}, fmt.Errorf("close result snapshot: %w", closeErr)
+	}
+	resultSHA := "sha256:" + hex.EncodeToString(resultHasher.Sum(nil))
 
 	metadata := input.Metadata
 	metadata.SchemaVersion = BundleSchemaVersion
@@ -121,6 +137,7 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	metadata.ConfigPath = input.ConfigPath
 	hash := sha256.Sum256(input.Config)
 	metadata.ConfigSHA256 = "sha256:" + hex.EncodeToString(hash[:])
+	metadata.ResultSHA256 = resultSHA
 	metadata.ConfigSnapshot = "config.json"
 	metadata.ResultSnapshot = "result.json"
 	if metadata.CreatedAt.IsZero() {
