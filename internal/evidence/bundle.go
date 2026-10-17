@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
+	"unicode"
 )
 
 const BundleSchemaVersion = 1
@@ -62,7 +64,10 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	if input.ID == "" {
 		return BundlePaths{}, errors.New("evidence bundle id is required")
 	}
-	if filepath.IsAbs(input.ID) || filepath.Base(input.ID) != input.ID || input.ID == "." || input.ID == ".." {
+	if filepath.IsAbs(input.ID) || filepath.Base(input.ID) != input.ID || input.ID == "." || input.ID == ".." ||
+		strings.HasPrefix(input.ID, ".") || strings.IndexFunc(input.ID, func(r rune) bool {
+		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
+	}) != -1 {
 		return BundlePaths{}, fmt.Errorf("invalid evidence bundle id %q", input.ID)
 	}
 
