@@ -28,11 +28,12 @@ func TestHandlerRendersBlockedReleaseAndSelectsFirstProblemPath(t *testing.T) {
 				TargetVersion: "v3",
 				Status:        engine.StatusPassed,
 				Duration:      2 * time.Second,
-				Phases: []engine.PhaseResult{{
-					Phase:    engine.PhaseVerify,
-					Status:   engine.StatusPassed,
-					Duration: 100 * time.Millisecond,
-				}},
+				Phases: []engine.PhaseResult{
+					{Phase: engine.PhasePrepare, Status: engine.StatusPassed},
+					{Phase: engine.PhaseUpgrade, Status: engine.StatusPassed},
+					{Phase: engine.PhaseVerify, Status: engine.StatusPassed, Duration: 100 * time.Millisecond},
+					{Phase: engine.PhaseCleanup, Status: engine.StatusPassed},
+				},
 			},
 			{
 				SourceVersion: "v2",
@@ -96,6 +97,7 @@ func TestHandlerRendersReadyRelease(t *testing.T) {
 			SourceVersion: "v1",
 			TargetVersion: "v2",
 			Status:        engine.StatusPassed,
+			Phases: phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup),
 		}},
 	})
 
