@@ -16,6 +16,9 @@ func TestWriteBundleRejectsInvisibleAndControlRunIDs(t *testing.T) {
 		"run\ttabbed",
 		"run\x00nul",
 		"run\x7fdelete",
+		"run\u202Ereversed",
+		"run\u2066isolated",
+		"run\u200Dzero-width",
 	} {
 		t.Run("reject", func(t *testing.T) {
 			root := t.TempDir()
