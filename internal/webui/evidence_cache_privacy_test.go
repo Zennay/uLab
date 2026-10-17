@@ -28,7 +28,7 @@ func TestEvidenceHTTPResponsesDisablePrivateCaching(t *testing.T) {
 	})
 	server := Server{EvidenceRoot: root}.Handler()
 	for _, tc := range []struct {
-		path string
+		path   string
 		status int
 	}{
 		{"/", http.StatusOK},
