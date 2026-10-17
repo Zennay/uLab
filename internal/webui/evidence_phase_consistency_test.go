@@ -51,8 +51,8 @@ func TestConsistentPassingPhaseEvidenceRemainsReady(t *testing.T) {
 			SourceVersion: "v1", TargetVersion: "v2", Status: engine.StatusPassed,
 			Phases: []engine.PhaseResult{
 				{Phase: engine.PhasePrepare, Status: engine.StatusPassed},
-				{Phase: engine.PhaseUpgrade, Status: engine.StatusPassed},
-				{Phase: engine.PhaseVerify, Status: engine.StatusPassed},
+				{Phase: engine.PhaseUpgrade, Status: engine.StatusPassed, Command: "./upgrade.sh"},
+				{Phase: engine.PhaseVerify, Status: engine.StatusPassed, Command: "./verify.sh"},
 				{Phase: engine.PhaseCleanup, Status: engine.StatusPassed},
 			},
 		}}, engine.StatusPassed)
