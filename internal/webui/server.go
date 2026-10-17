@@ -203,6 +203,14 @@ func releaseReadiness(bundle Bundle) readiness {
 		}
 	}
 
+	if !hasExactPathCoverage(bundle) {
+		return readiness{
+			Label: "UNVERIFIED", Class: "unknown",
+			Detail: "Stored run paths do not exactly match the configured source and target versions; do not use this evidence for release readiness.",
+			Passed: passed, Total: total,
+		}
+	}
+
 	switch {
 	case total == 0:
 		return readiness{
