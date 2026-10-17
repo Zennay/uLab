@@ -97,7 +97,7 @@ func TestHandlerRendersReadyRelease(t *testing.T) {
 			SourceVersion: "v1",
 			TargetVersion: "v2",
 			Status:        engine.StatusPassed,
-			Phases: phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup),
+			Phases:        phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup),
 		}},
 	})
 
