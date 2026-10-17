@@ -133,7 +133,6 @@ func TestLoadBundlesRejectsNoncanonicalSnapshotNames(t *testing.T) {
 	}
 }
 
-
 // A rehashed but structurally invalid config still must not enter readiness.
 func TestLoadBundlesRejectsInvalidConfigWithMatchingHash(t *testing.T) {
 	root := t.TempDir()
