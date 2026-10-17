@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode"
 	"time"
 )
 
@@ -62,7 +64,8 @@ func WriteBundle(input BundleInput) (paths BundlePaths, err error) {
 	if input.ID == "" {
 		return BundlePaths{}, errors.New("evidence bundle id is required")
 	}
-	if filepath.IsAbs(input.ID) || filepath.Base(input.ID) != input.ID || input.ID == "." || input.ID == ".." {
+	if filepath.IsAbs(input.ID) || filepath.Base(input.ID) != input.ID || input.ID == "." || input.ID == ".." ||
+		strings.HasPrefix(input.ID, ".") || strings.IndexFunc(input.ID, unicode.IsControl) != -1 {
 		return BundlePaths{}, fmt.Errorf("invalid evidence bundle id %q", input.ID)
 	}
 
