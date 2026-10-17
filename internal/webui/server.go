@@ -34,7 +34,14 @@ type Server struct {
 }
 
 func (s Server) Handler() http.Handler {
-	return http.HandlerFunc(s.serveIndex)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Evidence pages can contain private upgrade outputs and reproduction
+		// commands. Never let browsers or shared caches retain the response,
+		// including failures and unknown-run routes.
+		w.Header().Set("Cache-Control", "no-store, max-age=0")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		s.serveIndex(w, r)
+	})
 }
 
 func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
