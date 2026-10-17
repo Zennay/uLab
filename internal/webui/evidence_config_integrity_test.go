@@ -2,6 +2,8 @@ package webui
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -128,5 +130,37 @@ func TestLoadBundlesRejectsNoncanonicalSnapshotNames(t *testing.T) {
 				t.Fatalf("misidentified frozen %s was trusted: %v", field, err)
 			}
 		})
+	}
+}
+
+
+// A rehashed but structurally invalid config still must not enter readiness.
+func TestLoadBundlesRejectsInvalidConfigWithMatchingHash(t *testing.T) {
+	root := t.TempDir()
+	dir := makeConfigIntegrityBundle(t, root)
+	configBytes := []byte("{}\n")
+	if err := os.WriteFile(filepath.Join(dir, "config.json"), configBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	metadataPath := filepath.Join(dir, "metadata.json")
+	metadataBytes, err := os.ReadFile(metadataPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(metadataBytes, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.Sum256(configBytes)
+	metadata["config_sha256"] = "sha256:" + hex.EncodeToString(hash[:])
+	changed, err := json.Marshal(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(metadataPath, changed, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadBundles(root); err == nil || !strings.Contains(err.Error(), "versions.from") {
+		t.Fatalf("invalid config with matching hash accepted: %v", err)
 	}
 }
