@@ -100,7 +100,7 @@ func LoadBundles(root string) ([]Bundle, error) {
 
 		dir := filepath.Join(root, entry.Name())
 		var metadata evidence.BundleMetadata
-		if err := readJSON(filepath.Join(dir, "metadata.json"), &metadata); err != nil {
+		if err := readJSON(filepath.Join(dir, "metadata.json"), &metadata, maxEvidenceMetadataBytes); err != nil {
 			return nil, fmt.Errorf("%s metadata: %w", entry.Name(), err)
 		}
 		if metadata.SchemaVersion != evidence.BundleSchemaVersion {
@@ -116,7 +116,7 @@ func LoadBundles(root string) ([]Bundle, error) {
 		// Bind the exact config bytes used for this display to the original
 		// evidence receipt. A valid but modified policy cannot reinterpret
 		// an older recorded compatibility result as a new release decision.
-		configBytes, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		configBytes, err := readEvidenceSnapshot(filepath.Join(dir, "config.json"), maxEvidenceConfigBytes)
 		if err != nil {
 			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
 		}
@@ -133,7 +133,7 @@ func LoadBundles(root string) ([]Bundle, error) {
 		}
 
 		var result matrix.Result
-		if err := readJSON(filepath.Join(dir, "result.json"), &result); err != nil {
+		if err := readJSON(filepath.Join(dir, "result.json"), &result, maxEvidenceResultBytes); err != nil {
 			return nil, fmt.Errorf("%s result: %w", entry.Name(), err)
 		}
 
@@ -154,8 +154,8 @@ func LoadBundles(root string) ([]Bundle, error) {
 	return bundles, nil
 }
 
-func readJSON(path string, target any) error {
-	data, err := os.ReadFile(path)
+func readJSON(path string, target any, limit int64) error {
+	data, err := readEvidenceSnapshot(path, limit)
 	if err != nil {
 		return err
 	}
