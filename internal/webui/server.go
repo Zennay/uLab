@@ -44,7 +44,9 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 
 	bundles, err := LoadBundles(s.EvidenceRoot)
 	if err != nil {
-		http.Error(w, "read evidence: "+err.Error(), http.StatusInternalServerError)
+		// Preserve detailed errors in LoadBundles for local diagnostics, but never
+		// echo evidence metadata or filesystem paths to HTTP clients.
+		http.Error(w, "evidence unavailable", http.StatusInternalServerError)
 		return
 	}
 
