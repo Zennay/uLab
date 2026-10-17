@@ -30,8 +30,8 @@ func TestHandlerRendersBlockedReleaseAndSelectsFirstProblemPath(t *testing.T) {
 				Duration:      2 * time.Second,
 				Phases: []engine.PhaseResult{
 					{Phase: engine.PhasePrepare, Status: engine.StatusPassed},
-					{Phase: engine.PhaseUpgrade, Status: engine.StatusPassed},
-					{Phase: engine.PhaseVerify, Status: engine.StatusPassed, Duration: 100 * time.Millisecond},
+					{Phase: engine.PhaseUpgrade, Status: engine.StatusPassed, Command: "./upgrade.sh"},
+					{Phase: engine.PhaseVerify, Status: engine.StatusPassed, Command: "./verify.sh", Duration: 100 * time.Millisecond},
 					{Phase: engine.PhaseCleanup, Status: engine.StatusPassed},
 				},
 			},
