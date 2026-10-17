@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Zennay/ulab/internal/engine"
-	"github.com/Zennay/ulab/internal/executor"
 	"github.com/Zennay/ulab/internal/runner"
 )
 
