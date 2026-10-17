@@ -1,6 +1,8 @@
 package webui
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,9 +109,23 @@ func LoadBundles(root string) ([]Bundle, error) {
 		if metadata.InvocationID != entry.Name() {
 			return nil, fmt.Errorf("%s metadata: invocation id is %q", entry.Name(), metadata.InvocationID)
 		}
+		if metadata.ConfigSnapshot != "config.json" || metadata.ResultSnapshot != "result.json" {
+			return nil, fmt.Errorf("%s metadata: noncanonical evidence snapshot names", entry.Name())
+		}
 
+		// Bind the exact config bytes used for this display to the original
+		// evidence receipt. A valid but modified policy cannot reinterpret
+		// an older recorded compatibility result as a new release decision.
+		configBytes, err := os.ReadFile(filepath.Join(dir, "config.json"))
+		if err != nil {
+			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
+		}
+		hash := sha256.Sum256(configBytes)
+		if metadata.ConfigSHA256 != "sha256:"+hex.EncodeToString(hash[:]) {
+			return nil, fmt.Errorf("%s config: evidence snapshot hash mismatch", entry.Name())
+		}
 		var cfg config.Config
-		if err := readJSON(filepath.Join(dir, "config.json"), &cfg); err != nil {
+		if err := json.Unmarshal(configBytes, &cfg); err != nil {
 			return nil, fmt.Errorf("%s config: %w", entry.Name(), err)
 		}
 		if err := cfg.Validate(); err != nil {
