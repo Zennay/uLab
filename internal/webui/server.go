@@ -444,7 +444,7 @@ a:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px soli
 <body>
 <main>
 	<h1>Upgrade check results</h1>
-	<p class="muted">Understand the recorded release verdict, find an upgrade path that needs attention, and inspect the evidence. This read-only page keeps local filesystem paths private.</p>
+	<p class="muted">Understand the recorded release verdict, find an upgrade path that needs attention, and inspect the evidence. Read-only view of local evidence; filesystem paths stay private.</p>
 
 	{{if .Selected}}
 	<nav class="task-nav" aria-label="Explore upgrade check results">
