@@ -388,7 +388,7 @@ var pageTemplate = template.Must(template.New("index").Funcs(template.FuncMap{
 :root { font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #16181d; background: #f5f6f8; }
 body { margin: 0; }
 main { max-width: 1120px; margin: 0 auto; padding: 32px 20px 56px; }
-h1 { margin: 0 0 6px; font-size: 28px; }
+h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 34px); letter-spacing: -.035em; }
 h2 { margin: 0 0 14px; font-size: 20px; }
 h3 { margin: 0; font-size: 15px; }
 p { line-height: 1.5; }
@@ -426,17 +426,38 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 .error { color: #991b1b; }
 .notice { border-left: 3px solid #cbd1d8; padding-left: 12px; }
 .empty { padding: 28px; text-align: center; }
+.task-nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 24px 0 6px; }
+.task-nav a, .task-link { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd1d8; border-radius: 9px; padding: 9px 12px; background: #fff; font-weight: 650; text-decoration: none; }
+.task-nav a:hover, .task-link:hover { border-color: #465a77; background: #f1f5f9; }
+a:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.verdict-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.scope-note { margin-top: 16px; padding: 12px 14px; background: #f4f7fb; border: 1px solid #dbe5f0; border-radius: 9px; }
+.scope-note strong { display: block; margin-bottom: 4px; }
+.scope-note p { margin: 0; }
+.attention-row { background: #fffaf0; }
+.attention-row td:first-child { border-left: 3px solid #d97706; }
+.task-link { width: fit-content; }
+@media (max-width: 700px) { main { padding: 22px 14px 38px; } .card { padding: 16px; } .task-nav a { flex: 1 1 135px; } }
 @media (max-width: 700px) { table { display: block; overflow-x: auto; } .toolbar { align-items: stretch; flex-direction: column; } }
 </style>
 </head>
 <body>
 <main>
-	<h1>Compatibility evidence</h1>
-	<p class="muted">Read-only view of persisted local uLab evidence. Local filesystem paths are not displayed.</p>
+	<h1>Upgrade check results</h1>
+	<p class="muted">Understand the recorded release verdict, find an upgrade path that needs attention, and inspect the evidence. This read-only page keeps local filesystem paths private.</p>
+
+	{{if .Selected}}
+	<nav class="task-nav" aria-label="Explore upgrade check results">
+		<a href="#verdict">1. Release verdict</a>
+		<a href="#paths">2. Upgrade paths</a>
+		<a href="#diagnosis">3. Failure details</a>
+		<a href="#reproduce">4. Reproduce</a>
+	</nav>
+	{{end}}
 
 	{{if .Selected}}
 	<div class="toolbar">
-		<div><strong>Run</strong> <code>{{.Selected.Metadata.InvocationID}}</code></div>
+		<div><strong>Recorded check</strong> <code>{{.Selected.Metadata.InvocationID}}</code></div>
 		<form method="get">
 			<label for="run" class="muted">Evidence bundle</label>
 			<select id="run" name="run" onchange="this.form.submit()">
@@ -447,12 +468,24 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 		</form>
 	</div>
 
-	<section class="card">
+	<section class="card" id="verdict" aria-labelledby="verdict-title">
 		<div class="readiness">
 			<span class="status status-{{.Readiness.Class}} readiness-status">{{.Readiness.Label}}</span>
 			<div class="readiness-copy">
-				<h2>Release readiness · {{.Selected.Result.TargetVersion}}</h2>
-				<p>{{.Readiness.Detail}}</p>
+				<h2 id="verdict-title">Release readiness · {{.Selected.Result.TargetVersion}}</h2>
+				{{if eq .Readiness.Class "passed"}}
+				<p>All recorded upgrade paths passed this check. A production release still needs its own approval.</p>
+				{{else if eq .Readiness.Class "failed"}}
+				<p>This check did not pass the configured release gate. Investigate the failing upgrade path before deciding what to release.</p>
+				{{else if eq .Readiness.Class "attention"}}
+				<p>One or more paths did not pass. The configured policy allows exceptions, but those failures still need review.</p>
+				{{else}}
+				<p>The recorded evidence cannot support a passing decision yet. Check the evidence and rerun if needed.</p>
+				{{end}}
+				<details><summary>How was this verdict calculated?</summary><p class="muted">{{.Readiness.Detail}}</p></details>
+				<div class="verdict-actions">
+					<a class="task-link" href="#paths">{{if lt .Readiness.Passed .Readiness.Total}}Find the path that needs attention →{{else}}Review tested upgrade paths →{{end}}</a>
+				</div>
 			</div>
 		</div>
 		<div class="meta">
@@ -461,22 +494,27 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 			<div><strong>Created</strong>{{.Selected.Metadata.CreatedAt.Format "2006-01-02 15:04:05 UTC"}}</div>
 			<div><strong>Tool revision</strong><code>{{.Selected.Metadata.ToolVersion}} · {{.Selected.Metadata.ToolCommit}}</code></div>
 		</div>
+		<div class="scope-note">
+			<strong>What this result does—and does not—prove</strong>
+			<p>Only the recorded source-to-target paths and project-defined checks were tested. A passing result is not approval to deploy, and does not cover untested versions or application behavior outside those checks.</p>
+		</div>
 	</section>
 
-	<section class="card">
-		<h2>Compatibility matrix</h2>
+	<section class="card" id="paths" aria-labelledby="paths-title">
+		<h2 id="paths-title">Upgrade paths · compatibility matrix</h2>
+		<p class="muted">Start with a highlighted path if one did not pass. Each path links to its recorded checks and failure details.</p>
 		<table>
-			<thead><tr><th>From</th><th>Target</th><th>Result</th><th>Failure type</th><th>Failure phase</th><th>Duration</th><th></th></tr></thead>
+			<thead><tr><th scope="col">Existing version</th><th scope="col">New version</th><th scope="col">Result</th><th scope="col">Recorded failure</th><th scope="col">Phase</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead>
 			<tbody>
 			{{range .Selected.Result.Runs}}
-			<tr>
+			<tr {{if nonpassing .Status}}class="attention-row"{{end}}>
 				<td><code>{{.SourceVersion}}</code></td>
 				<td><code>{{.TargetVersion}}</code></td>
 				<td><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span></td>
 				<td>{{failure .}}</td>
 				<td>{{with failed .}}{{.}}{{else}}—{{end}}</td>
 				<td>{{duration .Duration}}</td>
-				<td><a class="inspect" href="?run={{urlquery $.Selected.Metadata.InvocationID}}&source={{urlquery .SourceVersion}}">Inspect</a></td>
+				<td><a class="inspect" href="?run={{urlquery $.Selected.Metadata.InvocationID}}&source={{urlquery .SourceVersion}}#diagnosis">{{if nonpassing .Status}}Investigate →{{else}}View evidence{{end}}</a></td>
 			</tr>
 			{{end}}
 			</tbody>
@@ -484,8 +522,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 	</section>
 
 	{{with .SelectedRun}}
-	<section class="card">
-		<h2>Run timeline · <code>{{.SourceVersion}}</code> → <code>{{.TargetVersion}}</code></h2>
+	<section class="card" id="diagnosis" aria-labelledby="diagnosis-title">
+		<h2 id="diagnosis-title">Run timeline · <code>{{.SourceVersion}}</code> → <code>{{.TargetVersion}}</code></h2>
 		<p><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span> &nbsp; Failure type: <strong>{{failure .}}</strong>{{with failed .}} · phase <strong>{{.}}</strong>{{end}}</p>
 		{{with failureNote .}}<p class="muted notice">{{.}}</p>{{end}}
 		<ol class="timeline">
@@ -498,8 +536,8 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 			{{end}}
 		</ol>
 
-		<div class="evidence">
-			<h2>Phase evidence</h2>
+		<div class="evidence" id="evidence-details">
+			<h2>Recorded phase evidence</h2>
 			{{range .Phases}}
 			<details {{if nonpassing .Status}}open{{end}}>
 				<summary>{{.Phase}} · {{.Status}} · {{duration .Duration}}</summary>
@@ -513,8 +551,9 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 	</section>
 	{{end}}
 
-	<section class="card">
-		<h2>Reproduce and provenance</h2>
+	<section class="card" id="reproduce" aria-labelledby="reproduce-title">
+		<h2 id="reproduce-title">Reproduce and provenance</h2>
+		<p class="muted">The recorded command and checksums are available for audit. Review the command before running it in a trusted environment.</p>
 		<div class="meta">
 			<div><strong>Config SHA-256</strong><code>{{.Selected.Metadata.ConfigSHA256}}</code></div>
             <div><strong>Result SHA-256</strong><code>{{if .Selected.Metadata.ResultSHA256}}{{.Selected.Metadata.ResultSHA256}}{{else}}not recorded (legacy){{end}}</code></div>
@@ -522,13 +561,13 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 			<div><strong>Runner</strong>{{if .Selected.Config.Runner.Type}}{{.Selected.Config.Runner.Type}}{{else}}process{{end}}</div>
 			<div><strong>Evidence bundle</strong><code>{{.Selected.Metadata.InvocationID}}</code></div>
 		</div>
-		<p class="muted">Command captured with the evidence bundle:</p>
+		<p class="muted">Reproduction command captured with this check:</p>
 		<code>{{reproduce .Selected.Metadata.ReproduceCommand}}</code>
 	</section>
 	{{else}}
 	<section class="card empty">
-		<h2>No evidence bundles yet</h2>
-		<p class="muted">Run <code>ulab test</code> first, then reload this page.</p>
+		<h2>No upgrade checks recorded yet</h2>
+		<p class="muted">Run <code>ulab test --config YOUR_CONFIG.json</code> for a configured upgrade scenario, then reload this page to review its release verdict and evidence.</p>
 	</section>
 	{{end}}
 </main>
