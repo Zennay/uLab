@@ -93,3 +93,38 @@ func TestPrivateEvidenceDoesNotRenderForNonReadHTTPMethods(t *testing.T) {
 		}
 	}
 }
+
+// Invalid query selectors must fail before loading any local private evidence.
+// Otherwise a corrupt/inaccessible evidence root masks malformed links with
+// HTTP 500 and wastes disk work on requests that can never be served.
+func TestInvalidEvidenceSelectorsAvoidPrivateEvidenceStorageReads(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "synthetic-private-root-file")
+	if err := os.WriteFile(root, []byte("fictional broken evidence directory"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	handler := Server{EvidenceRoot: root}.Handler()
+	for _, path := range []string{
+		"/?run=%ZZ", "/?run=", "/?source=v1&unknown=something",
+		"/?run=one&run=two", "/?source=", "/?bad=123",
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("invalid link %q got HTTP %d; want 404 before storage read", path, rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), "synthetic-private-root-file") ||
+			strings.Contains(rec.Body.String(), "fictional broken") {
+			t.Errorf("private error exposed for %q", path)
+		}
+		if rec.Header().Get("Cache-Control") != "no-store, max-age=0" ||
+			rec.Header().Get("Referrer-Policy") != "no-referrer" {
+			t.Errorf("privacy headers lost: %q", path)
+		}
+	}
+	valid := httptest.NewRecorder()
+	handler.ServeHTTP(valid, httptest.NewRequest(http.MethodGet, "/", nil))
+	if valid.Code != http.StatusInternalServerError {
+		t.Errorf("actual invalid private root should still return 500, got %d", valid.Code)
+	}
+}
