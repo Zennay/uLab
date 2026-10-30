@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -63,10 +64,17 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Query() silently discards malformed percent escapes. Never substitute
+	// the newest READY evidence for an invalid shared run/source deep-link.
+	// ParseQuery makes decoding failure explicit before selecting any evidence.
+	selectors, queryErr := url.ParseQuery(r.URL.RawQuery)
+	if queryErr != nil {
+		http.Error(w, "invalid evidence selection", http.StatusNotFound)
+		return
+	}
 	// Duplicate run/source parameters are ambiguous evidence identities.
-	// url.Values.Get silently takes the first and could show READY for the
+	// Values.Get silently takes the first and could show READY for the
 	// wrong shared link. A valid selection has at most one value per key.
-	selectors := r.URL.Query()
 	if len(selectors["run"]) > 1 || len(selectors["source"]) > 1 {
 		http.Error(w, "invalid evidence selection", http.StatusNotFound)
 		return
