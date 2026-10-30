@@ -70,3 +70,36 @@ func TestEvidenceLinkRejectsDuplicateRunAndSourceParameters(t *testing.T) {
 		}
 	}
 }
+
+// A malformed percent escape used to be silently discarded by URL.Query,
+// turning an intended run/source deep-link into the latest unrelated READY.
+func TestEvidenceLinkRejectsMalformedPercentEncodedSelectors(t *testing.T) {
+	root := t.TempDir()
+	writeTestBundle(t, root, "known", time.Now().UTC(), true, matrix.Result{
+		TargetVersion: "v2", Status: engine.StatusPassed,
+		Runs: []engine.RunResult{{SourceVersion: "v1", TargetVersion: "v2",
+			Status: engine.StatusPassed,
+			Phases: phaseInventory(engine.PhasePrepare, engine.PhaseUpgrade, engine.PhaseVerify, engine.PhaseCleanup)}},
+	})
+	handler := Server{EvidenceRoot: root}.Handler()
+	for _, path := range []string{"/?run=%ZZ", "/?source=%GG",
+		"/?run=known&source=%", "/?run=%FF%", "/?run=known&run=%XX"} {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			if rec.Code != http.StatusNotFound {
+				t.Errorf("malformed evidence URL %q returned %d instead of 404", path, rec.Code)
+			}
+			if len(rec.Body.String()) > 250 {
+				t.Fatal("malformed URL leaked rendered evidence")
+			}
+		})
+	}
+	for _, path := range []string{"/", "/?run=known", "/?run=known&source=v1"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("valid %q returned %d", path, rec.Code)
+		}
+	}
+}
