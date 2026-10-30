@@ -507,7 +507,20 @@ a:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visib
 .attention-row td:first-child { border-left: 3px solid #d97706; }
 .task-link { width: fit-content; }
 @media (max-width: 700px) { main { padding: 22px 14px 38px; } .card { padding: 16px; } .task-nav a { flex: 1 1 135px; } }
-@media (max-width: 700px) { table { display: block; overflow-x: auto; } .toolbar { align-items: stretch; flex-direction: column; } }
+/* Keep native table semantics while showing every result as a readable mobile card. */
+@media (max-width: 700px) {
+  .paths-table, .paths-table tbody { display: block; width: 100%; }
+  .paths-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .paths-table tr { display: block; border: 1px solid #dfe3e8; border-radius: 12px; padding: 10px 14px; margin: 12px 0; background: #fff; }
+  .paths-table tr.attention-row { border-color: #d97706; background: #fffaf0; }
+  .paths-table td { display: grid; grid-template-columns: minmax(96px, 36%) minmax(0, 1fr); gap: 10px; border: 0; padding: 9px 0; overflow-wrap: anywhere; }
+  .paths-table td::before { content: attr(data-label); font-size: 12px; font-weight: 650; color: #646b78; }
+  .paths-table .inspect { display: inline-flex; align-items: center; min-height: 44px; white-space: normal; }
+  .paths-table .status { width: fit-content; }
+  .paths-table .attention-row td:first-child { border-left: 0; }
+  .toolbar { align-items: stretch; flex-direction: column; }
+}
+
 </style>
 </head>
 <body>
@@ -573,18 +586,18 @@ a:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visib
 	<section class="card" id="paths" aria-labelledby="paths-title">
 		<h2 id="paths-title">Upgrade paths · compatibility matrix</h2>
 		<p class="muted">Start with a highlighted path if one did not pass. Each path links to its recorded checks and failure details.</p>
-		<table>
+		<table class="paths-table">
 			<thead><tr><th scope="col">Existing version</th><th scope="col">New version</th><th scope="col">Result</th><th scope="col">Recorded failure</th><th scope="col">Phase</th><th scope="col">Duration</th><th scope="col">Details</th></tr></thead>
 			<tbody>
 			{{range .Selected.Result.Runs}}
 			<tr {{if nonpassing .Status}}class="attention-row"{{end}}>
-				<td><code>{{.SourceVersion}}</code></td>
-				<td><code>{{.TargetVersion}}</code></td>
-				<td><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span></td>
-				<td>{{failure .}}</td>
-				<td>{{with failed .}}{{.}}{{else}}—{{end}}</td>
-				<td>{{duration .Duration}}</td>
-				<td><a class="inspect" href="?run={{urlquery $.Selected.Metadata.InvocationID}}&source={{urlquery .SourceVersion}}#diagnosis">{{if nonpassing .Status}}Investigate →{{else}}View evidence{{end}}</a></td>
+				<td data-label="Existing version"><code>{{.SourceVersion}}</code></td>
+				<td data-label="New version"><code>{{.TargetVersion}}</code></td>
+				<td data-label="Result"><span class="status status-{{.Status}}">{{glyph .Status}} {{.Status}}</span></td>
+				<td data-label="Recorded failure">{{failure .}}</td>
+				<td data-label="Phase">{{with failed .}}{{.}}{{else}}—{{end}}</td>
+				<td data-label="Duration">{{duration .Duration}}</td>
+				<td data-label="Details"><a class="inspect" href="?run={{urlquery $.Selected.Metadata.InvocationID}}&source={{urlquery .SourceVersion}}#diagnosis">{{if nonpassing .Status}}Investigate →{{else}}View evidence{{end}}</a></td>
 			</tr>
 			{{end}}
 			</tbody>
