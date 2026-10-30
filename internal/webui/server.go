@@ -446,6 +446,9 @@ a { color: inherit; }
 .toolbar, .card { background: white; border: 1px solid #dfe3e8; border-radius: 12px; }
 .toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 14px 16px; margin: 24px 0 16px; }
 select { max-width: 100%; padding: 8px 10px; border: 1px solid #cbd1d8; border-radius: 8px; background: white; }
+.toolbar form { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.toolbar button { min-height: 40px; padding: 8px 14px; border: 1px solid #344563; border-radius: 8px; background: #344563; color: white; cursor: pointer; font: inherit; font-weight: 650; }
+.toolbar button:hover { background: #233451; }
 .card { padding: 20px; margin-top: 16px; }
 .readiness { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .readiness-copy { flex: 1 1 420px; }
@@ -478,7 +481,7 @@ pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f8fa; borde
 .task-nav { display: flex; gap: 8px; flex-wrap: wrap; margin: 24px 0 6px; }
 .task-nav a, .task-link { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #cbd1d8; border-radius: 9px; padding: 9px 12px; background: #fff; font-weight: 650; text-decoration: none; }
 .task-nav a:hover, .task-link:hover { border-color: #465a77; background: #f1f5f9; }
-a:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+a:focus-visible, select:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
 .verdict-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
 .scope-note { margin-top: 16px; padding: 12px 14px; background: #f4f7fb; border: 1px solid #dbe5f0; border-radius: 9px; }
 .scope-note strong { display: block; margin-bottom: 4px; }
@@ -509,11 +512,12 @@ a:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px soli
 		<div><strong>Recorded check</strong> <code>{{.Selected.Metadata.InvocationID}}</code></div>
 		<form method="get">
 			<label for="run" class="muted">Evidence bundle</label>
-			<select id="run" name="run" onchange="this.form.submit()">
+			<select id="run" name="run">
 			{{range .Bundles}}
 				<option value="{{.Metadata.InvocationID}}" {{if eq .Metadata.InvocationID $.Selected.Metadata.InvocationID}}selected{{end}}>{{.Metadata.CreatedAt.Format "2006-01-02 15:04:05 UTC"}} · {{.Result.TargetVersion}} · {{.Result.Status}}</option>
 			{{end}}
 			</select>
+			<button type="submit">View check</button>
 		</form>
 	</div>
 
