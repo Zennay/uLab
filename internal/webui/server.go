@@ -361,8 +361,37 @@ func formatDuration(d time.Duration) string {
 	return d.Round(100 * time.Millisecond).String()
 }
 
+// Display a copyable POSIX shell command without reinterpreting untrusted
+// evidence arguments as shell operators or splitting paths containing spaces.
 func reproduceCommand(args []string) string {
-	return strings.Join(args, " ")
+	var command strings.Builder
+	for i, arg := range args {
+		if strings.ContainsRune(arg, 0) {
+			return "unavailable: command argument contains NUL"
+		}
+		if i > 0 {
+			command.WriteByte(' ')
+		}
+		safe := len(arg) > 0
+		for _, char := range arg {
+			if (char >= 'a' && char <= 'z') ||
+				(char >= 'A' && char <= 'Z') ||
+				(char >= '0' && char <= '9') ||
+				strings.ContainsRune("_@%+=:,./-", char) {
+				continue
+			}
+			safe = false
+			break
+		}
+		if safe {
+			command.WriteString(arg)
+		} else {
+			command.WriteByte(39)
+			command.WriteString(strings.ReplaceAll(arg, "'", "'\"'\"'"))
+			command.WriteByte(39)
+		}
+	}
+	return command.String()
 }
 
 func statusGlyph(status engine.Status) string {
