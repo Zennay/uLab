@@ -63,6 +63,14 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// An explicitly empty selector is not permission to silently open the
+	// newest evidence and show a potentially unrelated READY verdict.
+	if (r.URL.Query().Has("run") && r.URL.Query().Get("run") == "") ||
+		(r.URL.Query().Has("source") && r.URL.Query().Get("source") == "") {
+		http.Error(w, "invalid evidence selection", http.StatusNotFound)
+		return
+	}
+
 	// An explicit run or source is a navigation request, not the empty
 	// evidence overview. Never report HTTP 200 for a missing selection.
 	if len(bundles) == 0 && (r.URL.Query().Has("run") || r.URL.Query().Has("source")) {
