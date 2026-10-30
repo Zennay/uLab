@@ -63,6 +63,15 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bound user-controlled evidence links before parsing or opening any
+	// private snapshots. A huge syntactically valid run/source selector
+	// otherwise forces a full local evidence scan before an inevitable 404.
+	// Four KiB is ample for canonical evidence IDs and source version links.
+	if len(r.URL.RawQuery) > 4096 {
+		http.Error(w, "invalid evidence selection", http.StatusNotFound)
+		return
+	}
+
 	// Query() silently discards malformed percent escapes. Never substitute
 	// the newest READY evidence for an invalid shared run/source deep-link.
 	// ParseQuery makes decoding failure explicit before selecting any evidence.
