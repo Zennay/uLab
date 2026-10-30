@@ -46,6 +46,13 @@ func (s Server) Handler() http.Handler {
 		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
+		// Private evidence is a read-only browser view. Unexpected verbs must
+		// not receive a normal READY page or trigger evidence file reads.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
 		s.serveIndex(w, r)
 	})
 }
