@@ -63,14 +63,6 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bundles, err := LoadBundles(s.EvidenceRoot)
-	if err != nil {
-		// Preserve detailed errors in LoadBundles for local diagnostics, but never
-		// echo evidence metadata or filesystem paths to HTTP clients.
-		http.Error(w, "evidence unavailable", http.StatusInternalServerError)
-		return
-	}
-
 	// Query() silently discards malformed percent escapes. Never substitute
 	// the newest READY evidence for an invalid shared run/source deep-link.
 	// ParseQuery makes decoding failure explicit before selecting any evidence.
@@ -100,6 +92,14 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 	if (selectors.Has("run") && selectors.Get("run") == "") ||
 		(selectors.Has("source") && selectors.Get("source") == "") {
 		http.Error(w, "invalid evidence selection", http.StatusNotFound)
+		return
+	}
+
+	bundles, err := LoadBundles(s.EvidenceRoot)
+	if err != nil {
+		// Preserve detailed errors in LoadBundles for local diagnostics, but never
+		// echo evidence metadata or filesystem paths to HTTP clients.
+		http.Error(w, "evidence unavailable", http.StatusInternalServerError)
 		return
 	}
 
