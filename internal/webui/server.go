@@ -72,6 +72,14 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid evidence selection", http.StatusNotFound)
 		return
 	}
+	// Fail closed on misspelled or unexpected deep-link keys. Ignoring
+	// them could silently display the latest unrelated READY result.
+	for key := range selectors {
+		if key != "run" && key != "source" {
+			http.Error(w, "invalid evidence selection", http.StatusNotFound)
+			return
+		}
+	}
 	// Duplicate run/source parameters are ambiguous evidence identities.
 	// Values.Get silently takes the first and could show READY for the
 	// wrong shared link. A valid selection has at most one value per key.
