@@ -59,3 +59,37 @@ func TestEvidenceHTTPErrorDoesNotDiscloseLocalFilesystemRoot(t *testing.T) {
 		t.Fatalf("server response disclosed private server file path: %q", got)
 	}
 }
+
+func TestPrivateEvidenceDoesNotRenderForNonReadHTTPMethods(t *testing.T) {
+	root := t.TempDir()
+	writeTestBundle(t, root, "known", time.Now().UTC(), true, matrix.Result{
+		TargetVersion: "v2", Status: engine.StatusPassed,
+		Runs: []engine.RunResult{{SourceVersion: "v1", TargetVersion: "v2", Status: engine.StatusPassed}},
+	})
+	handler := Server{EvidenceRoot: root}.Handler()
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions} {
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, httptest.NewRequest(method, "/?run=known", nil))
+		if resp.Code != http.StatusMethodNotAllowed {
+			t.Errorf("%s status %d, want 405", method, resp.Code)
+		}
+		if resp.Header().Get("Allow") != "GET, HEAD" {
+			t.Errorf("%s missing Allow: %q", method, resp.Header().Get("Allow"))
+		}
+		if len(resp.Body.String()) > 200 {
+			t.Errorf("%s rendered private evidence", method)
+		}
+		if !strings.Contains(resp.Header().Get("Cache-Control"), "no-store") ||
+			resp.Header().Get("X-Frame-Options") != "DENY" ||
+			resp.Header().Get("Referrer-Policy") != "no-referrer" {
+			t.Errorf("%s lost private evidence response headers", method)
+		}
+	}
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		resp := httptest.NewRecorder()
+		handler.ServeHTTP(resp, httptest.NewRequest(method, "/?run=known", nil))
+		if resp.Code != http.StatusOK {
+			t.Errorf("%s status %d, want 200", method, resp.Code)
+		}
+	}
+}
