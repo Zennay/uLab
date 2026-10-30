@@ -40,6 +40,11 @@ func (s Server) Handler() http.Handler {
 		// including failures and unknown-run routes.
 		w.Header().Set("Cache-Control", "no-store, max-age=0")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Local upgrade evidence may contain private project commands and logs.
+		// Forbid embedding and Referer leakage on every success/error response.
+		w.Header().Set("Content-Security-Policy", "frame-ancestors 'none'")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		s.serveIndex(w, r)
 	})
 }
