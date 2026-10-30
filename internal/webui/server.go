@@ -63,17 +63,26 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Duplicate run/source parameters are ambiguous evidence identities.
+	// url.Values.Get silently takes the first and could show READY for the
+	// wrong shared link. A valid selection has at most one value per key.
+	selectors := r.URL.Query()
+	if len(selectors["run"]) > 1 || len(selectors["source"]) > 1 {
+		http.Error(w, "invalid evidence selection", http.StatusNotFound)
+		return
+	}
+
 	// An explicitly empty selector is not permission to silently open the
 	// newest evidence and show a potentially unrelated READY verdict.
-	if (r.URL.Query().Has("run") && r.URL.Query().Get("run") == "") ||
-		(r.URL.Query().Has("source") && r.URL.Query().Get("source") == "") {
+	if (selectors.Has("run") && selectors.Get("run") == "") ||
+		(selectors.Has("source") && selectors.Get("source") == "") {
 		http.Error(w, "invalid evidence selection", http.StatusNotFound)
 		return
 	}
 
 	// An explicit run or source is a navigation request, not the empty
 	// evidence overview. Never report HTTP 200 for a missing selection.
-	if len(bundles) == 0 && (r.URL.Query().Has("run") || r.URL.Query().Has("source")) {
+	if len(bundles) == 0 && (selectors.Has("run") || selectors.Has("source")) {
 		http.Error(w, "no evidence run available", http.StatusNotFound)
 		return
 	}
@@ -83,7 +92,7 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(bundles) > 0 {
 		selected := 0
-		if requested := r.URL.Query().Get("run"); requested != "" {
+		if requested := selectors.Get("run"); requested != "" {
 			selected = -1
 			for i := range bundles {
 				if bundles[i].Metadata.InvocationID == requested {
@@ -99,7 +108,7 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		data.Selected = &bundles[selected]
 		data.Readiness = releaseReadiness(*data.Selected)
 
-		selectedRun, err := selectRun(data.Selected.Result.Runs, r.URL.Query().Get("source"))
+		selectedRun, err := selectRun(data.Selected.Result.Runs, selectors.Get("source"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
