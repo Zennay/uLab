@@ -169,6 +169,30 @@ func TestHandlerSelectsRequestedEvidenceAndSource(t *testing.T) {
 	}
 }
 
+// M5 evidence navigation must remain deliberate and usable by keyboard or with
+// scripting disabled; a change event must not silently navigate away.
+func TestHandlerEvidenceChooserHasExplicitSubmit(t *testing.T) {
+	root := t.TempDir()
+	writeTestBundle(t, root, "first", time.Now().UTC(), true, matrix.Result{
+		TargetVersion: "v2", Status: engine.StatusPassed,
+		Runs: []engine.RunResult{{SourceVersion: "v1", TargetVersion: "v2", Status: engine.StatusPassed}},
+	})
+	response := httptest.NewRecorder()
+	Server{EvidenceRoot: root}.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	body := response.Body.String()
+	for _, want := range []string{`<form method="get">`, `id="run" name="run"`, `<button type="submit">View check</button>`, `button:focus-visible`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("evidence navigation missing %q", want)
+		}
+	}
+	if strings.Contains(body, `onchange=`) || strings.Contains(body, `this.form.submit()`) {
+		t.Fatal("evidence selector should not rely on inline JavaScript navigation")
+	}
+}
+
 func TestHandlerEscapesEvidenceText(t *testing.T) {
 	root := t.TempDir()
 	writeTestBundle(t, root, "safe-html", time.Now().UTC(), true, matrix.Result{
