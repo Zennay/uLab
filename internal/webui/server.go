@@ -58,6 +58,13 @@ func (s Server) serveIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// An explicit run or source is a navigation request, not the empty
+	// evidence overview. Never report HTTP 200 for a missing selection.
+	if len(bundles) == 0 && (r.URL.Query().Has("run") || r.URL.Query().Has("source")) {
+		http.Error(w, "no evidence run available", http.StatusNotFound)
+		return
+	}
+
 	data := pageData{
 		Bundles: bundles,
 	}
