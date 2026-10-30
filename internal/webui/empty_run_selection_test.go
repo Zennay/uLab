@@ -133,3 +133,31 @@ func TestEvidenceLinkRejectsUnknownSelectorKeys(t *testing.T) {
 		}
 	}
 }
+
+// A declared version in config is not proof of a completed source test.
+// Explicit source navigation must not return HTTP 200 for an empty result set.
+func TestEmptyEvidenceRejectsExplicitSourceSelection(t *testing.T) {
+	root := t.TempDir()
+	writeTestBundle(t, root, "known", time.Now().UTC(), true, matrix.Result{
+		TargetVersion: "v2", Status: engine.StatusFailed,
+		Runs: nil,
+	})
+	handler := Server{EvidenceRoot: root}.Handler()
+	for _, path := range []string{"/?source=v1", "/?run=known&source=v1", "/?run=known&source=missing"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%q returned %d instead of 404", path, rec.Code)
+		}
+		if len(rec.Body.String()) > 220 {
+			t.Errorf("%q rendered empty evidence as a successful selection", path)
+		}
+	}
+	for _, path := range []string{"/", "/?run=known"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%q returned %d instead of 200 NO DATA", path, rec.Code)
+		}
+	}
+}

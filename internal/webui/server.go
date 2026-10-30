@@ -328,6 +328,12 @@ func releaseReadiness(bundle Bundle) readiness {
 
 func selectRun(runs []engine.RunResult, source string) (*engine.RunResult, error) {
 	if len(runs) == 0 {
+		// A source version declared in config is not evidence that its
+		// upgrade path actually ran. Reject source-specific deep links
+		// rather than returning HTTP 200 for a nonexistent result.
+		if source != "" {
+			return nil, errors.New("no recorded test for requested source")
+		}
 		return nil, nil
 	}
 	if source != "" {
