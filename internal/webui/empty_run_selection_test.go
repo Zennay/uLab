@@ -103,3 +103,33 @@ func TestEvidenceLinkRejectsMalformedPercentEncodedSelectors(t *testing.T) {
 		}
 	}
 }
+
+// Misspelled or unrelated selector keys must not silently display the latest
+// READY evidence when the user expected a specific review link.
+func TestEvidenceLinkRejectsUnknownSelectorKeys(t *testing.T) {
+	root := t.TempDir()
+	writeTestBundle(t, root, "known", time.Now().UTC(), true, matrix.Result{
+		TargetVersion: "v2", Status: engine.StatusPassed,
+		Runs: []engine.RunResult{{SourceVersion: "v1", TargetVersion: "v2", Status: engine.StatusPassed}},
+	})
+	handler := Server{EvidenceRoot: root}.Handler()
+	for _, path := range []string{
+		"/?rnu=known", "/?run=known&ref=1", "/?source=v1&ru=n", "/?run=known&utm_source=other",
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%q returned %d, want 404", path, rec.Code)
+		}
+		if len(rec.Body.String()) > 250 {
+			t.Errorf("%q rendered a misleading evidence page", path)
+		}
+	}
+	for _, path := range []string{"/", "/?run=known", "/?run=known&source=v1"} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK {
+			t.Errorf("%q returned %d, want 200", path, rec.Code)
+		}
+	}
+}
